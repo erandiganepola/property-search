@@ -1,13 +1,35 @@
 import { useState } from "react";
+import { useAuthContext } from "@asgardeo/auth-react";
 import { properties } from "./data/properties";
 import StateSelector from "./components/StateSelector";
 import CategoryTabs from "./components/CategoryTabs";
 import type { CategoryKey } from "./components/CategoryTabs";
 import PropertyList from "./components/PropertyList";
+import LoginPage from "./components/LoginPage";
+import Header from "./components/Header";
 
 function App() {
+  const { state } = useAuthContext();
   const [selectedStates, setSelectedStates] = useState<string[]>([]);
   const [activeCategory, setActiveCategory] = useState<CategoryKey>("all");
+
+  // Show loading while the SDK initialises or processes the auth callback redirect
+  const hasAuthCallbackParams = new URLSearchParams(window.location.search).has("code");
+
+  if (state.isLoading || hasAuthCallbackParams) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="w-10 h-10 border-4 border-indigo-200 border-t-indigo-600 rounded-full animate-spin mx-auto mb-4" />
+          <p className="text-sm text-gray-500">Signing you in...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!state.isAuthenticated) {
+    return <LoginPage />;
+  }
 
   const filtered = properties.filter((p) => {
     const matchesState =
@@ -19,17 +41,7 @@ function App() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      {/* Header */}
-      <header className="bg-white shadow-sm">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-          <h1 className="text-2xl font-bold text-gray-900">
-            US Property Search
-          </h1>
-          <p className="mt-1 text-sm text-gray-500">
-            Browse properties for rent and sale across the United States
-          </p>
-        </div>
-      </header>
+      <Header />
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Filters */}
