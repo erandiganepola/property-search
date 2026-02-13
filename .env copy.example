@@ -2,3 +2,4 @@ VITE_ASGARDEO_CLIENT_ID=<your-client-id>
 VITE_ASGARDEO_BASE_URL=https://api.asgardeo.io/t/<your-org-name>
 VITE_ASGARDEO_SIGN_IN_REDIRECT_URL=http://localhost:5173
 VITE_ASGARDEO_SIGN_OUT_REDIRECT_URL=http://localhost:5173
+VITE_MCP_SERVER_URL=http://localhost:3001/mcp

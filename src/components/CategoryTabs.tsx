@@ -5,24 +5,41 @@ type CategoryKey = PropertyType | "all";
 interface Category {
   key: CategoryKey;
   label: string;
+  requiredScope?: "rent" | "sale";
 }
 
 const CATEGORIES: Category[] = [
   { key: "all", label: "All" },
-  { key: "short-rent", label: "Short-Term Rental" },
-  { key: "long-rent", label: "Long-Term Rental" },
-  { key: "sale", label: "For Sale" },
+  { key: "short-rent", label: "Short-Term Rental", requiredScope: "rent" },
+  { key: "long-rent", label: "Long-Term Rental", requiredScope: "rent" },
+  { key: "sale", label: "For Sale", requiredScope: "sale" },
 ];
 
 interface CategoryTabsProps {
   activeCategory: CategoryKey;
   onCategoryChange: (category: CategoryKey) => void;
+  availableScopes?: { rent: boolean; sale: boolean };
 }
 
-export default function CategoryTabs({ activeCategory, onCategoryChange }: CategoryTabsProps) {
+export default function CategoryTabs({
+  activeCategory,
+  onCategoryChange,
+  availableScopes = { rent: true, sale: true },
+}: CategoryTabsProps) {
+  const visibleCategories = CATEGORIES.filter(({ requiredScope }) => {
+    if (!requiredScope) return true;
+    return requiredScope === "rent" ? availableScopes.rent : availableScopes.sale;
+  });
+
+  // Hide "All" tab if user only has one scope type
+  const showAll = availableScopes.rent && availableScopes.sale;
+  const finalCategories = showAll
+    ? visibleCategories
+    : visibleCategories.filter((c) => c.key !== "all");
+
   return (
     <div className="flex flex-wrap gap-2">
-      {CATEGORIES.map(({ key, label }) => (
+      {finalCategories.map(({ key, label }) => (
         <button
           key={key}
           onClick={() => onCategoryChange(key)}

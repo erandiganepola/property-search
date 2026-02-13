@@ -1,7 +1,11 @@
 import { useEffect, useState } from "react";
 import { useAuthContext, type DecodedIDTokenPayload } from "@asgardeo/auth-react";
 
-export default function Header() {
+interface HeaderProps {
+  onSignOut?: () => void;
+}
+
+export default function Header({ onSignOut }: HeaderProps) {
   const { signOut, getDecodedIDToken } = useAuthContext();
   const [idToken, setIdToken] = useState<DecodedIDTokenPayload | null>(null);
 
@@ -34,7 +38,7 @@ export default function Header() {
             </p>
           </div>
           <button
-            onClick={() => signOut()}
+            onClick={() => (onSignOut ? onSignOut() : signOut())}
             className="bg-gray-100 text-gray-700 px-4 py-2 rounded-lg text-sm font-medium hover:bg-gray-200 transition cursor-pointer"
           >
             Sign Out
