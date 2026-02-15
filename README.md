@@ -5,43 +5,31 @@ An AI-powered US property search application. Users chat with an LLM-powered ass
 ## Architecture
 
 ```
-┌─────────────┐        SSE stream        ┌──────────────────┐
-│   web/      │ ──────────────────────▶   │  agent-service/  │
-│   React UI  │                           │  Express + LLM   │
-│   :5173     │ ◀──────────────────────   │  :3002           │
-└─────────────┘   text, tool calls,       └────────┬─────────┘
-                  property data                    │
-                                          APIM token (client credentials)
-                                          OpenAI SDK + MCP client
-                                                   │
-                                    ┌──────────────▼──────────────────┐
-                                    │   WSO2 API Manager 4.6  :8243   │
-                                    │                                 │
-                                    │  ┌───────────┐ ┌─────────────┐ │
-                                    │  │ AI Gateway │ │ MCP Gateway │ │
-                                    │  │ (OpenAI    │ │             │ │
-                                    │  │  proxy)    │ │ ┌────────┐  │ │
-                                    │  └─────┬─────┘ │ │Property│  │ │
-                                    │        │       │ │Search  │  │ │
-                                    │        │       │ │MCP     │  │ │
-                                    │        │       │ └───┬────┘  │ │
-                                    │        │       │ ┌────────┐  │ │
-                                    │        │       │ │Insuran.│  │ │
-                                    │        │       │ │MCP     │  │ │
-                                    │        │       │ │(REST→  │  │ │
-                                    │        │       │ │ MCP)   │  │ │
-                                    │        │       │ └───┬────┘  │ │
-                                    │        │       └─────┼──────┘ │
-                                    └────────┼─────────────┼────────┘
-                                             │             │
-                                    ┌────────▼───┐  ┌──────▼─────┐
-                                    │  OpenAI    │  │ mcp-server/│
-                                    │  API       │  │ :3001      │
-                                    └────────────┘  └────────────┘
-                                                    ┌────────────┐
-                                                    │insurance-  │
-                                                    │api/ :3003  │
-                                                    └────────────┘
+┌─────────────┐       SSE stream        ┌──────────────────┐
+│   web/      │ ─────────────────────▶   │  agent-service/  │
+│   React UI  │                          │  Express + LLM   │
+│   :5173     │ ◀─────────────────────   │  :3002           │
+└─────────────┘   text, tool calls,      └────────┬─────────┘
+                  property data                   │
+                                         APIM token (client credentials)
+                                         OpenAI SDK + MCP client
+                                                  │
+                ┌─────────────────────────────────▼──────────────────────┐
+                │              WSO2 API Manager 4.6  :8243               │
+                │                                                        │
+                │  ┌──────────────┐  ┌───────────────────────────────┐  │
+                │  │  AI Gateway  │  │          MCP Gateway          │  │
+                │  │  (OpenAI     │  │                               │  │
+                │  │   proxy)     │  │  Property Search  Insurance   │  │
+                │  │              │  │  MCP (proxy)      MCP (REST   │  │
+                │  │              │  │                    → MCP)      │  │
+                │  └──────┬───────┘  └───────┬──────────────┬────────┘  │
+                └─────────┼──────────────────┼──────────────┼───────────┘
+                          │                  │              │
+                 ┌────────▼────────┐  ┌──────▼─────┐  ┌────▼────────┐
+                 │   OpenAI API    │  │ mcp-server/│  │insurance-   │
+                 │                 │  │ :3001      │  │api/  :3003  │
+                 └─────────────────┘  └────────────┘  └─────────────┘
 ```
 
 ### How It Works
