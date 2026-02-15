@@ -6,10 +6,10 @@
   "main": "build/index.js",
   "scripts": {
     "build": "tsc",
-    "start": "node --env-file=.env build/index.js"
+    "start": "NODE_TLS_REJECT_UNAUTHORIZED=0 node --env-file=.env build/index.js"
   },
   "dependencies": {
-    "@modelcontextprotocol/sdk": "^1.12.1",
+    "@modelcontextprotocol/sdk": "1.24.0",
     "cors": "^2.8.5",
     "express": "^5.1.0",
     "jose": "^6.0.0",

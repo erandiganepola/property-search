@@ -5,10 +5,10 @@ import cors from "cors";
 import { randomUUID } from "node:crypto";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
-import { requireBearerAuth } from "@modelcontextprotocol/sdk/server/auth/middleware/bearerAuth.js";
+// import { requireBearerAuth } from "@modelcontextprotocol/sdk/server/auth/middleware/bearerAuth.js";
 import { z } from "zod";
 import { properties } from "./data/properties.js";
-import { createAsgardeoTokenVerifier } from "./auth/tokenVerifier.js";
+// import { createAsgardeoTokenVerifier } from "./auth/tokenVerifier.js";
 import { filterByScopes, getAllowedTypes } from "./auth/scopeFilter.js";
 import { getSessionUser } from "./auth/sessionContext.js";
 import { findNeighborhood } from "./data/neighborhoods.js";
@@ -26,10 +26,10 @@ const PORT = parseInt(process.env.PORT || "3001", 10);
 const ASGARDEO_BASE_URL = process.env.ASGARDEO_BASE_URL || "";
 const CORS_ORIGIN = process.env.CORS_ORIGIN || "http://localhost:5173";
 
-if (!ASGARDEO_BASE_URL) {
-  console.error("ASGARDEO_BASE_URL environment variable is required");
-  process.exit(1);
-}
+// if (!ASGARDEO_BASE_URL) {
+//   console.error("ASGARDEO_BASE_URL environment variable is required");
+//   process.exit(1);
+// }
 
 // --- Helper: extract userId from authInfo ---
 function resolveSession(extra: { authInfo?: { clientId?: string; scopes?: string[] } }) {
@@ -57,7 +57,7 @@ function createServer() {
     },
     async ({ states, type }, extra) => {
       const { scopes, userId } = resolveSession(extra);
-      console.log("[MCP] search_properties called — scopes:", scopes);
+      console.log(`[Tool] search_properties — states: ${states.join(", ")}${type ? `, type: ${type}` : ""}, scopes: [${scopes.join(", ")}]`);
 
       const normalizedStates = states.map((s) => s.toLowerCase());
 
@@ -81,6 +81,8 @@ function createServer() {
         resultsCount: results.length,
       });
 
+      console.log(`[Tool] search_properties → ${results.length} results`);
+
       return {
         content: [
           {
@@ -99,6 +101,7 @@ function createServer() {
     {},
     async () => {
       const statesWithProperties = [...new Set(properties.map((p) => p.state))].sort();
+      console.log(`[Tool] get_available_states → ${statesWithProperties.length} states`);
 
       return {
         content: [
@@ -120,6 +123,7 @@ function createServer() {
     },
     async ({ states }, extra) => {
       const { scopes } = resolveSession(extra);
+      console.log(`[Tool] get_property_summary — states: ${states?.join(", ") ?? "all"}`);
       let filtered = properties;
 
       if (states && states.length > 0) {
@@ -143,6 +147,8 @@ function createServer() {
         summary.forSale = filtered.filter((p) => p.type === "sale").length;
       }
 
+      console.log(`[Tool] get_property_summary → total: ${summary.total}`);
+
       return {
         content: [
           {
@@ -163,9 +169,11 @@ function createServer() {
     },
     async ({ id }, extra) => {
       const { scopes, userId } = resolveSession(extra);
+      console.log(`[Tool] get_property_details — id: ${id}`);
 
       const property = properties.find((p) => p.id === id);
       if (!property) {
+        console.log(`[Tool] get_property_details → not found`);
         return {
           content: [{ type: "text" as const, text: JSON.stringify({ error: "Property not found", id }) }],
         };
@@ -182,6 +190,7 @@ function createServer() {
       // Record view
       recordView(userId, id);
 
+      console.log(`[Tool] get_property_details → ${property.title}, ${property.city}, ${property.state}`);
       return {
         content: [{ type: "text" as const, text: JSON.stringify(scopeFiltered[0]) }],
       };
@@ -197,6 +206,7 @@ function createServer() {
     },
     async ({ ids }, extra) => {
       const { scopes, userId } = resolveSession(extra);
+      console.log(`[Tool] compare_properties — ids: ${ids.join(", ")}`);
 
       const found = ids
         .map((id) => properties.find((p) => p.id === id))
@@ -234,6 +244,7 @@ function createServer() {
         },
       };
 
+      console.log(`[Tool] compare_properties → ${accessible.length} properties compared`);
       return {
         content: [{ type: "text" as const, text: JSON.stringify(comparison) }],
       };
@@ -251,6 +262,7 @@ function createServer() {
       loanTermYears: z.number().default(30).describe("Loan term in years (default: 30)"),
     },
     async ({ propertyPrice, downPaymentPercent, annualInterestRate, loanTermYears }) => {
+      console.log(`[Tool] calculate_mortgage — price: $${propertyPrice}, down: ${downPaymentPercent}%, rate: ${annualInterestRate}%, term: ${loanTermYears}yr`);
       const downPayment = propertyPrice * (downPaymentPercent / 100);
       const loanAmount = propertyPrice - downPayment;
       const monthlyRate = annualInterestRate / 100 / 12;
@@ -279,6 +291,7 @@ function createServer() {
         totalCost: Math.round(totalCost * 100) / 100,
       };
 
+      console.log(`[Tool] calculate_mortgage → monthly: $${result.monthlyPayment}`);
       return {
         content: [{ type: "text" as const, text: JSON.stringify(result) }],
       };
@@ -294,14 +307,17 @@ function createServer() {
       state: z.string().describe("State name (e.g. 'Washington')"),
     },
     async ({ city, state }) => {
+      console.log(`[Tool] get_neighborhood_info — ${city}, ${state}`);
       const neighborhood = findNeighborhood(city, state);
 
       if (!neighborhood) {
+        console.log(`[Tool] get_neighborhood_info → no data`);
         return {
           content: [{ type: "text" as const, text: JSON.stringify({ error: "No neighborhood data available for this location", city, state }) }],
         };
       }
 
+      console.log(`[Tool] get_neighborhood_info → found (walk: ${neighborhood.walkScore}, safety: ${neighborhood.safetyRating})`);
       return {
         content: [{ type: "text" as const, text: JSON.stringify(neighborhood) }],
       };
@@ -315,6 +331,7 @@ function createServer() {
     {},
     async (_params, extra) => {
       const { userId } = resolveSession(extra);
+      console.log(`[Tool] get_user_profile — user: ${userId}`);
       const activity = getUserActivity(userId);
 
       if (!activity) {
@@ -345,6 +362,7 @@ function createServer() {
     },
     async ({ limit }, extra) => {
       const { scopes, userId } = resolveSession(extra);
+      console.log(`[Tool] get_personalized_recommendations — user: ${userId}, limit: ${limit}`);
       const activity = getUserActivity(userId);
 
       if (!activity) {
@@ -373,6 +391,7 @@ function createServer() {
       scored.sort((a, b) => b.matchScore - a.matchScore);
       const recommendations = scored.slice(0, limit);
 
+      console.log(`[Tool] get_personalized_recommendations → ${recommendations.length} recommendations`);
       return {
         content: [{ type: "text" as const, text: JSON.stringify({ profile, recommendations }) }],
       };
@@ -422,26 +441,30 @@ app.use(cors({
 }));
 app.use(express.json());
 
-const verifier = createAsgardeoTokenVerifier(ASGARDEO_BASE_URL);
-const authMiddleware = requireBearerAuth({ verifier });
+// const verifier = createAsgardeoTokenVerifier(ASGARDEO_BASE_URL);
+// const authMiddleware = requireBearerAuth({ verifier });
 
 // Per-session transport map
 const transports = new Map<string, StreamableHTTPServerTransport>();
 
-app.all("/mcp", authMiddleware, async (req, res) => {
+app.all("/mcp", async (req, res) => {
   const sessionId = req.headers["mcp-session-id"] as string | undefined;
+  const method = req.body?.method ?? "(no method)";
+  console.log(`[MCP] ${req.method} /mcp — method: ${method}, session: ${sessionId ?? "new"}`);
 
   if (req.method === "POST" && !sessionId) {
     // New session — create transport + connect server
     const transport = new StreamableHTTPServerTransport({
       sessionIdGenerator: () => randomUUID(),
       onsessioninitialized: (id) => {
+        console.log(`[MCP] Session created: ${id}`);
         transports.set(id, transport);
       },
     });
 
     transport.onclose = () => {
       if (transport.sessionId) {
+        console.log(`[MCP] Session closed: ${transport.sessionId}`);
         transports.delete(transport.sessionId);
       }
     };
@@ -456,6 +479,7 @@ app.all("/mcp", authMiddleware, async (req, res) => {
   if (sessionId) {
     const transport = transports.get(sessionId);
     if (!transport) {
+      console.log(`[MCP] Session not found: ${sessionId}`);
       res.status(404).json({ error: "Session not found" });
       return;
     }

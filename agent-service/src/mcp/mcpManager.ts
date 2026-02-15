@@ -23,17 +23,20 @@ export class McpManager {
 
   async connect(
     configs: McpServerConfig[],
-    accessToken: string
+    accessToken?: string
   ): Promise<void> {
     for (const config of configs) {
       const client = new Client({ name: "agent-service", version: "1.0.0" });
 
+      const headers: Record<string, string> = {};
+      if (accessToken) {
+        headers["Authorization"] = `Bearer ${accessToken}`;
+      }
+
       const transport = new StreamableHTTPClientTransport(
         new URL(config.url),
         {
-          requestInit: {
-            headers: { Authorization: `Bearer ${accessToken}` },
-          },
+          requestInit: { headers },
         }
       );
 

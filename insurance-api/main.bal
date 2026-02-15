@@ -17,7 +17,7 @@ service /api on new http:Listener(3003) {
     #
     # + return - Array of available insurance plans
     resource function get plans() returns Plan[] {
-        log:printInfo("GET /api/plans");
+        log:printInfo(string `GET /api/plans → returning ${plans.length()} plans`);
         return plans;
     }
 
@@ -46,7 +46,7 @@ service /api on new http:Listener(3003) {
         Plan plan = <Plan>getPlan(req.planId);
         Quote quote = calculateQuote(req, plan);
 
-        log:printInfo(string `Quote generated: ${quote.quoteId}, annual: $${quote.annualPremium}`);
+        log:printInfo(string `Quote generated: ${quote.quoteId}, annual: $${quote.annualPremium}, monthly: $${quote.monthlyPremium}, risk: ${quote.riskFactors.stateRisk}`);
         return quote;
     }
 }

@@ -6,6 +6,7 @@ import { randomUUID } from "node:crypto";
 import { createRemoteJWKSet, jwtVerify } from "jose";
 import { McpManager } from "./mcp/mcpManager.js";
 import type { McpServerConfig } from "./mcp/mcpManager.js";
+import { getApimToken } from "./mcp/apimToken.js";
 import { runAgentLoop } from "./agent/agentLoop.js";
 import type { SSEEvent } from "./agent/agentLoop.js";
 
@@ -37,32 +38,22 @@ if (mcpServers.length === 0) {
   process.exit(1);
 }
 
-// --- JWT Verification ---
+// --- JWT Verification (frontend auth) ---
 const jwksUrl = new URL(`${ASGARDEO_BASE_URL}/oauth2/jwks`);
 const JWKS = createRemoteJWKSet(jwksUrl);
 const expectedIssuer = `${ASGARDEO_BASE_URL}/oauth2/token`;
 
-async function verifyToken(token: string): Promise<string> {
-  const { payload } = await jwtVerify(token, JWKS, {
-    issuer: expectedIssuer,
-  });
-  return token; // Return the validated token for forwarding to MCP servers
+async function verifyToken(token: string): Promise<void> {
+  await jwtVerify(token, JWKS, { issuer: expectedIssuer });
 }
 
-// --- Per-user MCP Manager cache ---
-// Keyed by access token hash (tokens are short-lived, so this self-cleans on expiry)
-const mcpManagers = new Map<string, McpManager>();
+// --- Shared MCP Manager (APIM-authenticated) ---
+let mcpManager: McpManager | null = null;
 
-async function getOrCreateMcpManager(accessToken: string): Promise<McpManager> {
-  // Use a simple key — in production you'd want token-hash or sub claim
-  const key = accessToken.slice(-16);
-
-  let manager = mcpManagers.get(key);
-  if (manager) return manager;
-
-  manager = new McpManager();
-  await manager.connect(mcpServers, accessToken);
-  mcpManagers.set(key, manager);
+async function initMcpManager(): Promise<McpManager> {
+  const token = await getApimToken();
+  const manager = new McpManager();
+  await manager.connect(mcpServers, token);
   return manager;
 }
 
@@ -79,7 +70,7 @@ app.use(express.json());
 
 // POST /chat — SSE streaming chat endpoint
 app.post("/chat", async (req, res) => {
-  // Extract and validate Bearer token
+  // Extract and validate Bearer token (Asgardeo — frontend auth)
   const authHeader = req.headers.authorization;
   if (!authHeader?.startsWith("Bearer ")) {
     res.status(401).json({ error: "Missing Bearer token" });
@@ -123,7 +114,9 @@ app.post("/chat", async (req, res) => {
   };
 
   try {
-    const mcpManager = await getOrCreateMcpManager(accessToken);
+    if (!mcpManager) {
+      throw new Error("MCP manager not initialized");
+    }
     await runAgentLoop(message, conversationId, mcpManager, sendEvent);
     console.log(`[Chat] Request complete — conversationId: ${conversationId}`);
   } catch (err) {
@@ -142,15 +135,26 @@ app.get("/health", (_req, res) => {
   res.json({ status: "ok", mcpServers: mcpServers.map((s) => s.name) });
 });
 
-app.listen(PORT, () => {
-  console.log(`Agent service running on port ${PORT}`);
-  console.log(`Model: ${process.env.MODEL || "anthropic/claude-sonnet-4.5"}`);
-  console.log(
-    `LLM base URL: ${process.env.OPENROUTER_BASE_URL || "https://openrouter.ai/api/v1"}`
-  );
-  console.log(`CORS origin: ${CORS_ORIGIN}`);
-  console.log(`Asgardeo base URL: ${ASGARDEO_BASE_URL}`);
-  console.log(
-    `MCP servers: ${mcpServers.map((s) => `${s.name} (${s.url})`).join(", ")}`
-  );
-});
+// --- Startup ---
+async function start() {
+  try {
+    mcpManager = await initMcpManager();
+  } catch (err) {
+    console.error("[Startup] Failed to initialize MCP manager:", err);
+    process.exit(1);
+  }
+
+  app.listen(PORT, () => {
+    console.log(`Agent service running on port ${PORT}`);
+    console.log(`Model: ${process.env.MODEL || "anthropic/claude-sonnet-4.5"}`);
+    console.log(
+      `LLM base URL: ${process.env.OPENROUTER_BASE_URL || "https://openrouter.ai/api/v1"}`
+    );
+    console.log(`CORS origin: ${CORS_ORIGIN}`);
+    console.log(
+      `MCP servers: ${mcpServers.map((s) => `${s.name} (${s.url})`).join(", ")}`
+    );
+  });
+}
+
+start();
