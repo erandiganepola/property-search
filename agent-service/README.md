@@ -18,7 +18,7 @@ Both **LLM calls** and **MCP tool calls** are routed through WSO2 APIM using cli
 - Node.js v18+
 - npm
 - [WSO2 API Manager 4.6](https://wso2.com/api-manager/) with AI Gateway and MCP Gateway configured
-- The [MCP Property Search Server](../mcp-server/) running locally
+- The [MCP Property Search Server](../property-search-mcp/) running locally
 - An [Asgardeo](https://asgardeo.io/) organization (same as the frontend)
 
 ## Getting Started
@@ -116,7 +116,7 @@ Frontend ──Asgardeo JWT──▶ Agent Service ──APIM Token──▶ WSO
                                         (OpenAI)     (Property Search)  (Insurance)
                                               │               │               │
                                               ▼               ▼               ▼
-                                         OpenAI API     mcp-server/    insurance-api/
+                                         OpenAI API     property-search-mcp/    insurance-api/
 ```
 
 1. Frontend sends a chat message with the user's Asgardeo JWT

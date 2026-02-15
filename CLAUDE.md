@@ -13,7 +13,7 @@ Monorepo with 4 services, each in its own subfolder:
 
 | Service | Port | Stack | Build & Run |
 |---------|------|-------|-------------|
-| `mcp-server/` | 3001 | Node.js + TypeScript + Express 5 | `npm run build && npm start` |
+| `property-search-mcp/` | 3001 | Node.js + TypeScript + Express 5 | `npm run build && npm start` |
 | `agent-service/` | 3002 | Node.js + TypeScript + Express 5 | `npm run build && npm start` |
 | `insurance-api/` | 3003 | Ballerina Swan Lake | `bal build && bal run` |
 | `web/` | 5173 | React 19 + Vite + Tailwind CSS 4 | `npm run dev` |
@@ -34,7 +34,7 @@ Monorepo with 4 services, each in its own subfolder:
 
 - `.env` files are gitignored. Each service has a `.env.example` with placeholder values.
 - `agent-service/.env` needs: `LLM_BASE_URL`, `APIM_CONSUMER_KEY`, `APIM_CONSUMER_SECRET`, `APIM_TOKEN_URL`, `ASGARDEO_BASE_URL`, `MCP_SERVERS`
-- `mcp-server/.env` needs: `ASGARDEO_BASE_URL`
+- `property-search-mcp/.env` needs: `ASGARDEO_BASE_URL`
 - `web/.env` needs: `VITE_ASGARDEO_CLIENT_ID`, `VITE_ASGARDEO_BASE_URL`
 - `insurance-api/` needs no env config
 

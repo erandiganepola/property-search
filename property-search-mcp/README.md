@@ -86,7 +86,7 @@ The server validates JWT access tokens against Asgardeo's JWKS endpoint. Propert
 ## Project Structure
 
 ```
-mcp-server/
+property-search-mcp/
 ├── package.json
 ├── tsconfig.json
 ├── .env.example

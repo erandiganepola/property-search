@@ -26,10 +26,10 @@ An AI-powered US property search application. Users chat with an LLM-powered ass
                 │  └──────┬───────┘  └───────┬──────────────┬────────┘  │
                 └─────────┼──────────────────┼──────────────┼───────────┘
                           │                  │              │
-                 ┌────────▼────────┐  ┌──────▼─────┐  ┌────▼────────┐
-                 │   OpenAI API    │  │ mcp-server/│  │insurance-   │
-                 │                 │  │ :3001      │  │api/  :3003  │
-                 └─────────────────┘  └────────────┘  └─────────────┘
+                 ┌────────▼────────┐  ┌─────────▼──────────┐  ┌────▼────────┐
+                 │   OpenAI API    │  │ property-search-mcp │  │ insurance-  │
+                 │                 │  │ :3001               │  │ api/ :3003  │
+                 └─────────────────┘  └─────────────────────┘  └─────────────┘
 ```
 
 ### How It Works
@@ -54,7 +54,7 @@ An AI-powered US property search application. Users chat with an LLM-powered ass
 | **web/** | 5173 | React 19 + Vite + Tailwind CSS 4 | Chat UI with property side panel, Asgardeo login |
 | **agent-service/** | 3002 | Node.js + TypeScript + Express 5 | LLM orchestration, MCP client, SSE streaming |
 | **WSO2 APIM** | 8243 | WSO2 API Manager 4.6 | AI Gateway (LLM proxy) + MCP Gateway — auth, rate limiting, analytics |
-| **mcp-server/** | 3001 | Node.js + TypeScript | 9 property search tools (search, compare, mortgage, etc.) |
+| **property-search-mcp/** | 3001 | Node.js + TypeScript | 9 property search tools (search, compare, mortgage, etc.) |
 | **insurance-api/** | 3003 | Ballerina Swan Lake | Insurance quote API (plans lookup, premium calculation) |
 
 ### MCP Tools Available to the LLM
@@ -93,7 +93,7 @@ An AI-powered US property search application. Users chat with an LLM-powered ass
 ### 1. Install dependencies
 
 ```bash
-cd mcp-server && npm install
+cd property-search-mcp && npm install
 cd ../agent-service && npm install
 cd ../web && npm install
 cd ../insurance-api && bal build
@@ -104,7 +104,7 @@ cd ../insurance-api && bal build
 Each Node.js project has a `.env.example` — copy and fill in:
 
 ```bash
-cp mcp-server/.env.example mcp-server/.env
+cp property-search-mcp/.env.example property-search-mcp/.env
 cp agent-service/.env.example agent-service/.env
 cp "web/.env copy.example" web/.env
 ```
@@ -131,7 +131,7 @@ The agent service needs:
 
 ```bash
 # Terminal 1: MCP Server
-cd mcp-server && npm run build && npm start
+cd property-search-mcp && npm run build && npm start
 
 # Terminal 2: Insurance API
 cd insurance-api && bal run
@@ -154,7 +154,7 @@ property-search/
 │   └── src/mcp/
 │       ├── mcpManager.ts   # Multi-server MCP client manager
 │       └── apimToken.ts    # APIM client credentials token provider
-├── mcp-server/             # Property search MCP server (9 tools)
+├── property-search-mcp/             # Property search MCP server (9 tools)
 ├── insurance-api/          # Ballerina insurance quote REST API
 │   └── api_openapi.yaml    # OpenAPI spec (used by APIM for MCP conversion)
 ├── CLAUDE.md               # Project conventions

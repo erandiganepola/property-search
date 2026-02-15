@@ -18,7 +18,7 @@ A React web application with an AI chat interface for US property search. Authen
 - Node.js v18+
 - npm
 - An [Asgardeo](https://asgardeo.io/) organization with a Single Page Application configured
-- The [Agent Service](../agent-service/) and [MCP Server](../mcp-server/) running locally
+- The [Agent Service](../agent-service/) and [MCP Server](../property-search-mcp/) running locally
 
 ## Getting Started
 
