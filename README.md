@@ -1,18 +1,18 @@
 # Property Search
 
-An AI-powered US property search application. Users chat with a Claude-powered assistant that searches listings, compares properties, calculates mortgages, and provides neighborhood info — all via MCP (Model Context Protocol) tool integration with Asgardeo OAuth2 authentication.
+An AI-powered US property search application. Users chat with an LLM-powered assistant that searches listings, compares properties, calculates mortgages, and provides neighborhood info — all via MCP (Model Context Protocol) tool integration with Asgardeo OAuth2 authentication.
 
 ## Architecture
 
 ```
 web/ (React)  ──SSE stream──▶  agent-service/  ──MCP client──▶  mcp-server/
-  :5173                           :3002          Anthropic API      :3001
+  :5173                           :3002        OpenRouter LLM      :3001
 ```
 
 | Component | Description |
 |---|---|
-| **web/** | React 19 + TypeScript frontend with AI chat UI and Asgardeo OAuth2+PKCE login |
-| **agent-service/** | Express server that bridges chat messages to Claude API, executes MCP tools, streams responses |
+| **web/** | React 19 + TypeScript frontend with AI chat UI, property side panel, and Asgardeo OAuth2+PKCE login |
+| **agent-service/** | Express server that bridges chat messages to any LLM via OpenRouter, executes MCP tools, streams responses |
 | **mcp-server/** | MCP server with 9 property search tools, JWT auth, scope-based access control |
 
 ## Quick Start
@@ -31,7 +31,7 @@ Each project has a `.env.example` — copy and fill in:
 
 ```bash
 cp mcp-server/.env.example mcp-server/.env
-cp agent-service/.env.example agent-service/.env    # Set ANTHROPIC_API_KEY
+cp agent-service/.env.example agent-service/.env    # Set OPENROUTER_API_KEY
 cp "web/.env copy.example" web/.env                 # Set VITE_ASGARDEO_CLIENT_ID
 ```
 
@@ -54,7 +54,7 @@ Open `http://localhost:5173`, sign in via Asgardeo, and start chatting.
 
 - Node.js v18+
 - npm
-- An [Anthropic API key](https://console.anthropic.com/)
+- An [OpenRouter API key](https://openrouter.ai/) for LLM access
 - An [Asgardeo](https://asgardeo.io/) organization with an OAuth2 SPA configured
 
 See each subdirectory's README for detailed setup and configuration.

@@ -1,15 +1,15 @@
 # Agent Service
 
-An AI chat agent that bridges the React frontend to MCP servers via the Anthropic API. It receives natural language questions, uses Claude to reason about which tools to call, executes those tools against MCP server(s), and streams responses back to the user in real time.
+An AI chat agent that bridges the React frontend to MCP servers via OpenRouter. It receives natural language questions, uses an LLM to reason about which tools to call, executes those tools against MCP server(s), and streams responses back to the user in real time.
 
-Designed for **multi-server support** — add new MCP servers by updating the `MCP_SERVERS` config.
+Supports **any model available on OpenRouter** — configure via the `MODEL` environment variable. Designed for **multi-server support** — add new MCP servers by updating the `MCP_SERVERS` config.
 
 ## Tech Stack
 
 - **Runtime:** Node.js 18+
 - **Language:** TypeScript
 - **Framework:** Express 5
-- **AI:** `@anthropic-ai/sdk` (Claude Sonnet)
+- **AI:** `openai` SDK via [OpenRouter](https://openrouter.ai/) (any model)
 - **MCP Client:** `@modelcontextprotocol/sdk` (StreamableHTTP transport)
 - **Auth:** `jose` (JWT/JWKS verification against Asgardeo)
 
@@ -17,7 +17,7 @@ Designed for **multi-server support** — add new MCP servers by updating the `M
 
 - Node.js v18+
 - npm
-- An Anthropic API key
+- An [OpenRouter API key](https://openrouter.ai/)
 - The [MCP Property Search Server](../mcp-server/) running locally
 - An [Asgardeo](https://asgardeo.io/) organization (same as the frontend)
 
@@ -35,12 +35,14 @@ npm install
 cp .env.example .env
 ```
 
-Then set your `ANTHROPIC_API_KEY` in `.env`.
+Then set your `OPENROUTER_API_KEY` in `.env`.
 
 | Variable | Description | Default |
 |---|---|---|
 | `PORT` | Server port | `3002` |
-| `ANTHROPIC_API_KEY` | Anthropic API key | *(required)* |
+| `OPENROUTER_API_KEY` | OpenRouter API key | *(required)* |
+| `OPENROUTER_BASE_URL` | OpenRouter base URL | `https://openrouter.ai/api/v1` |
+| `MODEL` | LLM model ID (see [OpenRouter models](https://openrouter.ai/models)) | `anthropic/claude-sonnet-4.5` |
 | `ASGARDEO_BASE_URL` | Asgardeo org base URL | *(required)* |
 | `CORS_ORIGIN` | Allowed CORS origin | `http://localhost:5173` |
 | `MCP_SERVERS` | JSON array of MCP server configs | *(required)* |
@@ -93,6 +95,7 @@ data: {"type":"tool_call","name":"property-search__search_properties"}
 data: {"type":"tool_result","name":"property-search__search_properties"}
 data: {"type":"text","content":"Here are some"}
 data: {"type":"text","content":" rentals in California..."}
+data: {"type":"properties","content":"[{...}]"}
 data: {"type":"done","conversationId":"abc-123"}
 ```
 
@@ -106,15 +109,15 @@ Returns service status and connected MCP server names.
 Frontend ──Bearer JWT──▶ Agent Service ──Bearer JWT──▶ MCP Server(s)
                               │
                               ▼
-                        Anthropic API
-                     (Claude Sonnet 4.5)
+                      OpenRouter API
+                    (configurable model)
 ```
 
 1. Frontend sends a chat message with the user's Asgardeo JWT
 2. Agent service validates the JWT, connects to MCP servers (forwarding the JWT)
-3. Claude receives the message + available tools and decides what to call
-4. Agent service executes MCP tool calls and feeds results back to Claude
-5. Text is streamed back to the frontend via SSE as Claude generates it
+3. The LLM receives the message + available tools and decides what to call
+4. Agent service executes MCP tool calls and feeds results back to the LLM
+5. Text is streamed back to the frontend via SSE as the LLM generates it
 
 ## Project Structure
 
@@ -123,14 +126,13 @@ agent-service/
 ├── package.json
 ├── tsconfig.json
 ├── .env.example
-├── .gitignore
 ├── README.md
 ├── src/
 │   ├── index.ts                    # Express server, /chat endpoint, JWT auth
 │   ├── mcp/
 │   │   └── mcpManager.ts          # Multi-server MCP client manager
 │   └── agent/
-│       ├── agentLoop.ts           # Anthropic streaming agentic loop
+│       ├── agentLoop.ts           # OpenAI SDK streaming agentic loop
 │       └── conversationStore.ts   # In-memory conversation history
 └── build/                          # Compiled JavaScript output
 ```

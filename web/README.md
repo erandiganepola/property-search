@@ -1,14 +1,17 @@
 # Web — US Property Search Frontend
 
-A React web application with an AI chat interface for US property search. Authenticated via **Asgardeo** (WSO2 Identity) using OAuth2 + PKCE. Communicates with the [Agent Service](../agent-service/) which orchestrates MCP tool calls via Claude.
+A React web application with an AI chat interface for US property search. Authenticated via **Asgardeo** (WSO2 Identity) using OAuth2 + PKCE. Communicates with the [Agent Service](../agent-service/) which orchestrates MCP tool calls via any LLM through OpenRouter.
 
 ## Tech Stack
 
 - **Framework:** React 19 with TypeScript
 - **Build Tool:** Vite 7
-- **Styling:** Tailwind CSS 4
+- **Styling:** Tailwind CSS 4 with `@tailwindcss/typography`
+- **Font:** Plus Jakarta Sans (Google Fonts)
+- **Icons:** lucide-react
 - **Auth:** `@asgardeo/auth-react` 5.4 (OAuth2 + PKCE)
 - **AI Chat:** Streams responses from the Agent Service via SSE
+- **Markdown:** react-markdown with remark-gfm (tables, lists, etc.)
 
 ## Prerequisites
 
@@ -49,11 +52,12 @@ The app opens at `http://localhost:5173`.
 
 ## Features
 
-- **AI Chat Interface** — natural language property search powered by Claude
+- **AI Chat Interface** — natural language property search powered by any LLM via OpenRouter
 - **OAuth2 + PKCE login** via Asgardeo with a polished login page
-- **Streaming responses** — text appears word-by-word as Claude generates it
-- **Tool call indicators** — shows which MCP tools the agent is using
-- **Markdown rendering** — rich formatting in assistant responses
+- **Streaming responses** — text appears word-by-word as the LLM generates it
+- **Inline tool indicators** — shows which MCP tools the agent is using with spinner/checkmark
+- **Property side panel** — slide-over panel to browse properties returned by the agent
+- **Markdown rendering** — rich formatting with tables, lists, and headings via remark-gfm
 - **Responsive design** — works on mobile, tablet, and desktop
 
 ## Project Structure
@@ -69,15 +73,19 @@ web/
 ├── src/
 │   ├── main.tsx                 # Entry point, Asgardeo AuthProvider setup
 │   ├── App.tsx                  # Auth flow + ChatView
-│   ├── index.css                # Tailwind CSS import
+│   ├── index.css                # Tailwind CSS, typography plugin, table styles
 │   ├── api/
 │   │   └── agentClient.ts      # SSE client for agent service
 │   ├── components/
 │   │   ├── Header.tsx           # Nav bar with user name and sign-out
 │   │   ├── LoginPage.tsx        # OAuth2 login screen
-│   │   ├── ChatView.tsx         # Chat container with message list
-│   │   ├── ChatMessage.tsx      # Message bubble with markdown
-│   │   └── ChatInput.tsx        # Text input with send button
+│   │   ├── ChatView.tsx         # Chat container with message list and panel state
+│   │   ├── ChatMessage.tsx      # Message bubble with markdown and tool indicators
+│   │   ├── ChatInput.tsx        # Text input with send button
+│   │   ├── PropertyPanel.tsx    # Slide-over side panel for property cards
+│   │   ├── PropertyCard.tsx     # Property card component
+│   │   ├── PropertyList.tsx     # Property grid list
+│   │   └── StateSelector.tsx    # Multi-select state dropdown
 │   └── data/
 │       └── properties.ts        # Types and US states list
 ```
