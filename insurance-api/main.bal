@@ -10,13 +10,26 @@ import ballerina/log;
 }
 service /api on new http:Listener(3003) {
 
-    // GET /api/plans — List all available insurance plans.
+    # List all available property insurance coverage plans.
+    #
+    # Returns the Basic, Standard, and Premium plans with their
+    # deductibles, coverage percentages, and included features.
+    #
+    # + return - Array of available insurance plans
     resource function get plans() returns Plan[] {
         log:printInfo("GET /api/plans");
         return plans;
     }
 
-    // POST /api/quotes — Generate an insurance quote.
+    # Generate a property insurance quote.
+    #
+    # Calculates an insurance premium based on the property's US state,
+    # value, type (sale, long-rent, or short-rent), and the selected
+    # insurance plan. The premium factors in geographic risk, property
+    # type risk, and plan tier.
+    #
+    # + req - Quote request with state, property value, type, and plan ID
+    # + return - Insurance quote with premium breakdown, or 400 if validation fails
     resource function post quotes(@http:Payload QuoteRequest req) returns Quote|http:BadRequest {
         log:printInfo(string `POST /api/quotes — state: ${req.state}, value: ${req.propertyValue}, type: ${req.propertyType}, plan: ${req.planId}`);
 
