@@ -1,23 +1,23 @@
 # Agent Service
 
-An AI chat agent that bridges the React frontend to MCP servers via OpenRouter. It receives natural language questions, uses an LLM to reason about which tools to call, executes those tools against MCP server(s), and streams responses back to the user in real time.
+An AI chat agent that bridges the React frontend to MCP servers via WSO2 API Manager. It receives natural language questions, uses an LLM to reason about which tools to call, executes those tools against MCP server(s), and streams responses back to the user in real time.
 
-Supports **any model available on OpenRouter** — configure via the `MODEL` environment variable. Designed for **multi-server support** — add new MCP servers by updating the `MCP_SERVERS` config.
+Both **LLM calls** and **MCP tool calls** are routed through WSO2 APIM using client credentials OAuth2 tokens. The LLM model is configurable via the `MODEL` environment variable. Designed for **multi-server support** — add new MCP servers by updating the `MCP_SERVERS` config.
 
 ## Tech Stack
 
 - **Runtime:** Node.js 18+
 - **Language:** TypeScript
 - **Framework:** Express 5
-- **AI:** `openai` SDK via [OpenRouter](https://openrouter.ai/) (any model)
-- **MCP Client:** `@modelcontextprotocol/sdk` (StreamableHTTP transport)
-- **Auth:** `jose` (JWT/JWKS verification against Asgardeo)
+- **AI:** `openai` SDK via WSO2 APIM AI Gateway (proxied OpenAI)
+- **MCP Client:** `@modelcontextprotocol/sdk` (StreamableHTTP transport via APIM MCP Gateway)
+- **Auth:** `jose` (JWT/JWKS verification against Asgardeo for frontend), APIM client credentials for backend
 
 ## Prerequisites
 
 - Node.js v18+
 - npm
-- An [OpenRouter API key](https://openrouter.ai/)
+- [WSO2 API Manager 4.6](https://wso2.com/api-manager/) with AI Gateway and MCP Gateway configured
 - The [MCP Property Search Server](../mcp-server/) running locally
 - An [Asgardeo](https://asgardeo.io/) organization (same as the frontend)
 
@@ -35,24 +35,26 @@ npm install
 cp .env.example .env
 ```
 
-Then set your `OPENROUTER_API_KEY` in `.env`.
+Then configure the APIM and LLM settings in `.env`.
 
 | Variable | Description | Default |
 |---|---|---|
 | `PORT` | Server port | `3002` |
-| `OPENROUTER_API_KEY` | OpenRouter API key | *(required)* |
-| `OPENROUTER_BASE_URL` | OpenRouter base URL | `https://openrouter.ai/api/v1` |
-| `MODEL` | LLM model ID (see [OpenRouter models](https://openrouter.ai/models)) | `anthropic/claude-sonnet-4.5` |
+| `LLM_BASE_URL` | APIM AI Gateway endpoint | `https://api.openai.com/v1` |
+| `MODEL` | LLM model ID | `gpt-4o-mini` |
+| `APIM_CONSUMER_KEY` | APIM application consumer key | *(required)* |
+| `APIM_CONSUMER_SECRET` | APIM application consumer secret | *(required)* |
+| `APIM_TOKEN_URL` | APIM token endpoint | `https://localhost:9443/oauth2/token` |
 | `ASGARDEO_BASE_URL` | Asgardeo org base URL | *(required)* |
 | `CORS_ORIGIN` | Allowed CORS origin | `http://localhost:5173` |
-| `MCP_SERVERS` | JSON array of MCP server configs | *(required)* |
+| `MCP_SERVERS` | JSON array of MCP server configs (APIM gateway URLs) | *(required)* |
 
 **MCP_SERVERS format:**
 
 ```json
 [
-  {"name": "property-search", "url": "http://localhost:3001/mcp"},
-  {"name": "another-server", "url": "http://localhost:4001/mcp"}
+  {"name": "property-search", "url": "https://localhost:8243/property-search/1.0.0/mcp"},
+  {"name": "insurance", "url": "https://localhost:8243/insurance/1.0.0/mcp"}
 ]
 ```
 
@@ -106,18 +108,23 @@ Returns service status and connected MCP server names.
 ## Architecture
 
 ```
-Frontend ──Bearer JWT──▶ Agent Service ──Bearer JWT──▶ MCP Server(s)
-                              │
-                              ▼
-                      OpenRouter API
-                    (configurable model)
+Frontend ──Asgardeo JWT──▶ Agent Service ──APIM Token──▶ WSO2 APIM :8243
+                                                              │
+                                              ┌───────────────┼───────────────┐
+                                              ▼               ▼               ▼
+                                        AI Gateway      MCP Gateway      MCP Gateway
+                                        (OpenAI)     (Property Search)  (Insurance)
+                                              │               │               │
+                                              ▼               ▼               ▼
+                                         OpenAI API     mcp-server/    insurance-api/
 ```
 
 1. Frontend sends a chat message with the user's Asgardeo JWT
-2. Agent service validates the JWT, connects to MCP servers (forwarding the JWT)
-3. The LLM receives the message + available tools and decides what to call
-4. Agent service executes MCP tool calls and feeds results back to the LLM
-5. Text is streamed back to the frontend via SSE as the LLM generates it
+2. Agent service validates the JWT, obtains an APIM token via client credentials
+3. LLM calls go through APIM AI Gateway → OpenAI (APIM handles the OpenAI API key)
+4. The LLM decides which tools to call; tool calls go through APIM MCP Gateway
+5. Agent service executes MCP tool calls and feeds results back to the LLM
+6. Text is streamed back to the frontend via SSE as the LLM generates it
 
 ## Project Structure
 
@@ -130,9 +137,10 @@ agent-service/
 ├── src/
 │   ├── index.ts                    # Express server, /chat endpoint, JWT auth
 │   ├── mcp/
-│   │   └── mcpManager.ts          # Multi-server MCP client manager
+│   │   ├── mcpManager.ts          # Multi-server MCP client manager
+│   │   └── apimToken.ts           # APIM client credentials token provider
 │   └── agent/
-│       ├── agentLoop.ts           # OpenAI SDK streaming agentic loop
+│       ├── agentLoop.ts           # OpenAI SDK streaming agentic loop (via APIM)
 │       └── conversationStore.ts   # In-memory conversation history
 └── build/                          # Compiled JavaScript output
 ```

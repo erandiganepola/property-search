@@ -20,20 +20,20 @@ Monorepo with 4 services, each in its own subfolder:
 
 ## Key technical decisions
 
-- **LLM access**: Via OpenRouter (OpenAI SDK), NOT Anthropic SDK directly. Model is configurable via `MODEL` env var.
-- **Current model**: `deepseek/deepseek-v3.2` (set in agent-service/.env)
+- **LLM access**: Via WSO2 APIM AI Gateway (OpenAI SDK). APIM proxies to OpenAI and handles API key. Model configurable via `MODEL` env var.
+- **Current model**: `gpt-4o-mini` via APIM AI Gateway (set in agent-service/.env)
 - **MCP transport**: StreamableHTTP (not stdio)
 - **Auth**: Asgardeo OAuth2+PKCE. JWT verified via JWKS. Scopes: `list-rent`, `list-sale`.
 - **Frontend icons**: lucide-react (no inline SVGs)
 - **Frontend font**: Plus Jakarta Sans (Google Fonts)
-- **Frontend markdown**: react-markdown + remark-gfm + @tailwindcss/typography
+- **Frontend markdown**: react-markdown + remark-gfm + rehype-raw + @tailwindcss/typography
 - **Chat segments model**: Text and tool call pills are interleaved inline (ContentSegment[] in ChatMessage.tsx)
 - **Property cards**: Shown in a slide-over side panel (PropertyPanel.tsx), NOT inline in chat bubbles
 
 ## Environment files
 
 - `.env` files are gitignored. Each service has a `.env.example` with placeholder values.
-- `agent-service/.env` needs: `OPENROUTER_API_KEY`, `ASGARDEO_BASE_URL`, `MCP_SERVERS`
+- `agent-service/.env` needs: `LLM_BASE_URL`, `APIM_CONSUMER_KEY`, `APIM_CONSUMER_SECRET`, `APIM_TOKEN_URL`, `ASGARDEO_BASE_URL`, `MCP_SERVERS`
 - `mcp-server/.env` needs: `ASGARDEO_BASE_URL`
 - `web/.env` needs: `VITE_ASGARDEO_CLIENT_ID`, `VITE_ASGARDEO_BASE_URL`
 - `insurance-api/` needs no env config

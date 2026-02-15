@@ -1,6 +1,6 @@
 # Property Search
 
-An AI-powered US property search application. Users chat with an LLM-powered assistant that searches listings, compares properties, calculates mortgages, gets neighborhood info, and generates insurance quotes — all exposed as MCP (Model Context Protocol) tools through WSO2 API Manager, with Asgardeo OAuth2 authentication.
+An AI-powered US property search application. Users chat with an LLM-powered assistant that searches listings, compares properties, calculates mortgages, gets neighborhood info, and generates insurance quotes — all exposed as MCP (Model Context Protocol) tools through WSO2 API Manager. Both LLM calls and MCP tool calls are routed through APIM, with Asgardeo OAuth2 authentication for the frontend.
 
 ## Architecture
 
@@ -11,44 +11,53 @@ An AI-powered US property search application. Users chat with an LLM-powered ass
 │   :5173     │ ◀──────────────────────   │  :3002           │
 └─────────────┘   text, tool calls,       └────────┬─────────┘
                   property data                    │
-                                          MCP client (StreamableHTTP)
                                           APIM token (client credentials)
+                                          OpenAI SDK + MCP client
                                                    │
-                                    ┌──────────────▼──────────────┐
-                                    │   WSO2 API Manager 4.6      │
-                                    │   MCP Gateway  :8243        │
-                                    │                             │
-                                    │  ┌───────────┐ ┌─────────┐ │
-                                    │  │ Property   │ │Insurance│ │
-                                    │  │ Search MCP │ │ MCP     │ │
-                                    │  │ (proxy)    │ │(OpenAPI)│ │
-                                    │  └─────┬─────┘ └────┬────┘ │
-                                    └────────┼────────────┼──────┘
-                                             │            │
-                              MCP protocol   │            │  REST → MCP
-                              (passthrough)  │            │  (converted)
-                                             │            │
-                                    ┌────────▼───┐  ┌─────▼──────┐
-                                    │ mcp-server/│  │insurance-  │
-                                    │ Node.js    │  │api/        │
-                                    │ 9 tools    │  │Ballerina   │
-                                    │ :3001      │  │ :3003      │
+                                    ┌──────────────▼──────────────────┐
+                                    │   WSO2 API Manager 4.6  :8243   │
+                                    │                                 │
+                                    │  ┌───────────┐ ┌─────────────┐ │
+                                    │  │ AI Gateway │ │ MCP Gateway │ │
+                                    │  │ (OpenAI    │ │             │ │
+                                    │  │  proxy)    │ │ ┌────────┐  │ │
+                                    │  └─────┬─────┘ │ │Property│  │ │
+                                    │        │       │ │Search  │  │ │
+                                    │        │       │ │MCP     │  │ │
+                                    │        │       │ └───┬────┘  │ │
+                                    │        │       │ ┌────────┐  │ │
+                                    │        │       │ │Insuran.│  │ │
+                                    │        │       │ │MCP     │  │ │
+                                    │        │       │ │(REST→  │  │ │
+                                    │        │       │ │ MCP)   │  │ │
+                                    │        │       │ └───┬────┘  │ │
+                                    │        │       └─────┼──────┘ │
+                                    └────────┼─────────────┼────────┘
+                                             │             │
+                                    ┌────────▼───┐  ┌──────▼─────┐
+                                    │  OpenAI    │  │ mcp-server/│
+                                    │  API       │  │ :3001      │
                                     └────────────┘  └────────────┘
+                                                    ┌────────────┐
+                                                    │insurance-  │
+                                                    │api/ :3003  │
+                                                    └────────────┘
 ```
 
 ### How It Works
 
 1. **User chats** in the React frontend, which streams messages to the agent service via SSE
-2. **Agent service** sends the conversation to an LLM (via OpenRouter), which decides which tools to call
-3. **Tool calls** go through **WSO2 API Manager's MCP Gateway**, which provides:
+2. **Agent service** authenticates to APIM using client credentials (OAuth2) and gets a token
+3. **LLM calls** go through **APIM's AI Gateway** — the OpenAI SDK sends requests to `https://localhost:8243/openaiapi/2.3.0` using the APIM token, and APIM proxies to OpenAI with backend-configured API key
+4. **Tool calls** go through **APIM's MCP Gateway**, which provides:
    - OAuth2 token validation and access control
    - Rate limiting and throttling
    - Analytics and monitoring
    - Protocol translation (REST → MCP for the insurance API)
-4. **Two backend services** provide the actual tools:
+5. **Two backend services** provide the actual tools:
    - **Property Search MCP** — a native MCP server proxied through APIM
    - **Insurance API** — a REST API converted to MCP tools by APIM from its OpenAPI spec
-5. **Results stream back** to the frontend as SSE events (text, tool call indicators, property data)
+6. **Results stream back** to the frontend as SSE events (text, tool call indicators, property data)
 
 ### Components
 
@@ -56,7 +65,7 @@ An AI-powered US property search application. Users chat with an LLM-powered ass
 |-----------|------|-------|------|
 | **web/** | 5173 | React 19 + Vite + Tailwind CSS 4 | Chat UI with property side panel, Asgardeo login |
 | **agent-service/** | 3002 | Node.js + TypeScript + Express 5 | LLM orchestration, MCP client, SSE streaming |
-| **WSO2 APIM** | 8243 | WSO2 API Manager 4.6 | MCP Gateway — auth, rate limiting, REST-to-MCP |
+| **WSO2 APIM** | 8243 | WSO2 API Manager 4.6 | AI Gateway (LLM proxy) + MCP Gateway — auth, rate limiting, analytics |
 | **mcp-server/** | 3001 | Node.js + TypeScript | 9 property search tools (search, compare, mortgage, etc.) |
 | **insurance-api/** | 3003 | Ballerina Swan Lake | Insurance quote API (plans lookup, premium calculation) |
 
@@ -90,7 +99,7 @@ An AI-powered US property search application. Users chat with an LLM-powered ass
 - Node.js v18+
 - [Ballerina Swan Lake](https://ballerina.io/downloads/) (Update 13+)
 - [WSO2 API Manager 4.6](https://wso2.com/api-manager/)
-- An [OpenRouter API key](https://openrouter.ai/) for LLM access
+- An OpenAI API key (configured as endpoint security in APIM, not in the app)
 - An [Asgardeo](https://asgardeo.io/) organization with an OAuth2 SPA configured
 
 ### 1. Install dependencies
@@ -113,7 +122,7 @@ cp "web/.env copy.example" web/.env
 ```
 
 The agent service needs:
-- `OPENROUTER_API_KEY` — for LLM access
+- `LLM_BASE_URL` — APIM AI Gateway endpoint (e.g. `https://localhost:8243/openaiapi/2.3.0`)
 - `APIM_CONSUMER_KEY` / `APIM_CONSUMER_SECRET` — from APIM DevPortal application
 - `MCP_SERVERS` — APIM gateway MCP endpoints
 
@@ -121,11 +130,12 @@ The agent service needs:
 
 1. Start APIM: `<APIM_HOME>/bin/api-manager.sh`
 2. In the **Publisher Portal** (`https://localhost:9443/publisher`):
-   - Create MCP Server from existing MCP → proxy `http://localhost:3001/mcp`
-   - Create MCP Server from OpenAPI → import `insurance-api/api_openapi.yaml`, set endpoint to `http://localhost:3003`
-   - Deploy and publish both
+   - **AI Gateway**: Create REST API proxying `https://api.openai.com/v1`, configure endpoint security with the OpenAI API key (`Authorization: Bearer`)
+   - **MCP Gateway**: Create MCP Server from existing MCP → proxy `http://localhost:3001/mcp`
+   - **MCP Gateway**: Create MCP Server from OpenAPI → import `insurance-api/api_openapi.yaml`, set endpoint to `http://localhost:3003`
+   - Deploy and publish all three
 3. In the **Developer Portal** (`https://localhost:9443/devportal`):
-   - Create an application, subscribe to both MCP servers
+   - Create an application, subscribe to all three APIs
    - Generate production keys (client credentials grant)
    - Add the consumer key/secret to `agent-service/.env`
 
