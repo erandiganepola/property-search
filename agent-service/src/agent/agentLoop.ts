@@ -1,6 +1,7 @@
 import OpenAI from "openai";
 import type { ChatCompletionMessageParam } from "openai/resources/chat/completions.js";
 import type { McpManager } from "../mcp/mcpManager.js";
+import { getApimToken } from "../mcp/apimToken.js";
 import { getMessages, appendMessage } from "./conversationStore.js";
 
 const SYSTEM_PROMPT = `You are a US property search assistant. You help users find properties for rent and sale across the United States.
@@ -43,9 +44,10 @@ export async function runAgentLoop(
   mcpManager: McpManager,
   sendEvent: (event: SSEEvent) => void
 ): Promise<void> {
+  const apimToken = await getApimToken();
   const openai = new OpenAI({
-    baseURL: process.env.OPENROUTER_BASE_URL || "https://openrouter.ai/api/v1",
-    apiKey: process.env.OPENROUTER_API_KEY,
+    baseURL: process.env.LLM_BASE_URL || "https://api.openai.com/v1",
+    apiKey: apimToken,
   });
 
   const tools = mcpManager.getTools();
@@ -92,7 +94,7 @@ export async function runAgentLoop(
       // Tool call deltas — id, name, and arguments arrive incrementally
       if (delta.tool_calls) {
         for (const tc of delta.tool_calls) {
-          const idx = tc.index;
+          const idx = tc.index ?? toolCallsAccum.length;
           if (!toolCallsAccum[idx]) {
             toolCallsAccum[idx] = {
               id: "",

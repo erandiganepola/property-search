@@ -28,11 +28,6 @@ if (!ASGARDEO_BASE_URL) {
   process.exit(1);
 }
 
-if (!process.env.OPENROUTER_API_KEY) {
-  console.error("OPENROUTER_API_KEY environment variable is required");
-  process.exit(1);
-}
-
 if (mcpServers.length === 0) {
   console.error("MCP_SERVERS must contain at least one server");
   process.exit(1);
@@ -148,7 +143,7 @@ async function start() {
     console.log(`Agent service running on port ${PORT}`);
     console.log(`Model: ${process.env.MODEL || "anthropic/claude-sonnet-4.5"}`);
     console.log(
-      `LLM base URL: ${process.env.OPENROUTER_BASE_URL || "https://openrouter.ai/api/v1"}`
+      `LLM base URL: ${process.env.LLM_BASE_URL || "https://api.openai.com/v1"}`
     );
     console.log(`CORS origin: ${CORS_ORIGIN}`);
     console.log(

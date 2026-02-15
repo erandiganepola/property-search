@@ -1,5 +1,6 @@
 import Markdown from "react-markdown";
 import remarkGfm from "remark-gfm";
+import rehypeRaw from "rehype-raw";
 import { Loader2, CheckCircle2, Building2, ChevronRight } from "lucide-react";
 import type { Property } from "../data/properties";
 
@@ -51,7 +52,7 @@ export default function ChatMessage({ message, onViewProperties }: ChatMessagePr
             if (seg.type === "text" && seg.content) {
               return (
                 <div key={i} className={PROSE_CLASSES}>
-                  <Markdown remarkPlugins={[remarkGfm]}>
+                  <Markdown remarkPlugins={[remarkGfm]} rehypePlugins={[rehypeRaw]}>
                     {seg.content}
                   </Markdown>
                 </div>
@@ -78,7 +79,7 @@ export default function ChatMessage({ message, onViewProperties }: ChatMessagePr
         {/* Fallback: no segments yet, show content directly */}
         {!isUser && !message.segments?.length && message.content && (
           <div className={PROSE_CLASSES}>
-            <Markdown remarkPlugins={[remarkGfm]}>{message.content}</Markdown>
+            <Markdown remarkPlugins={[remarkGfm]} rehypePlugins={[rehypeRaw]}>{message.content}</Markdown>
           </div>
         )}
 
