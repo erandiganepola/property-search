@@ -24,7 +24,9 @@ import {
 // --- Configuration ---
 const PORT = parseInt(process.env.PORT || "3001", 10);
 const ASGARDEO_BASE_URL = process.env.ASGARDEO_BASE_URL || "";
-const CORS_ORIGIN = process.env.CORS_ORIGIN || "http://localhost:5173";
+const CORS_ORIGINS = (process.env.CORS_ORIGIN || "http://localhost:5173")
+  .split(",")
+  .map((o) => o.trim());
 
 // if (!ASGARDEO_BASE_URL) {
 //   console.error("ASGARDEO_BASE_URL environment variable is required");
@@ -435,7 +437,7 @@ function buildMatchReasons(property: typeof properties[number], profile: ReturnT
 const app = express();
 
 app.use(cors({
-  origin: CORS_ORIGIN,
+  origin: CORS_ORIGINS,
   allowedHeaders: ["Content-Type", "Accept", "Authorization", "mcp-session-id"],
   exposedHeaders: ["mcp-session-id"],
 }));
@@ -492,6 +494,6 @@ app.all("/mcp", async (req, res) => {
 
 app.listen(PORT, () => {
   console.log(`MCP Property Search server running on port ${PORT}`);
-  console.log(`CORS origin: ${CORS_ORIGIN}`);
+  console.log(`CORS origins: ${CORS_ORIGINS.join(", ")}`);
   console.log(`Asgardeo base URL: ${ASGARDEO_BASE_URL}`);
 });
