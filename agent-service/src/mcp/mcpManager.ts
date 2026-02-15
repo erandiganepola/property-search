@@ -1,6 +1,6 @@
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/streamableHttp.js";
-import type { Tool as AnthropicTool } from "@anthropic-ai/sdk/resources/messages.js";
+import type { ChatCompletionTool } from "openai/resources/chat/completions.js";
 
 export interface McpServerConfig {
   name: string;
@@ -19,17 +19,23 @@ interface ConnectedServer {
 export class McpManager {
   private servers: ConnectedServer[] = [];
   private toolMap = new Map<string, ConnectedServer>();
-  private anthropicTools: AnthropicTool[] = [];
+  private tools: ChatCompletionTool[] = [];
 
-  async connect(configs: McpServerConfig[], accessToken: string): Promise<void> {
+  async connect(
+    configs: McpServerConfig[],
+    accessToken: string
+  ): Promise<void> {
     for (const config of configs) {
       const client = new Client({ name: "agent-service", version: "1.0.0" });
 
-      const transport = new StreamableHTTPClientTransport(new URL(config.url), {
-        requestInit: {
-          headers: { Authorization: `Bearer ${accessToken}` },
-        },
-      });
+      const transport = new StreamableHTTPClientTransport(
+        new URL(config.url),
+        {
+          requestInit: {
+            headers: { Authorization: `Bearer ${accessToken}` },
+          },
+        }
+      );
 
       await client.connect(transport);
       const connected: ConnectedServer = { config, client };
@@ -40,10 +46,13 @@ export class McpManager {
       for (const tool of tools) {
         const namespacedName = `${config.name}__${tool.name}`;
         this.toolMap.set(namespacedName, connected);
-        this.anthropicTools.push({
-          name: namespacedName,
-          description: tool.description || "",
-          input_schema: tool.inputSchema as AnthropicTool.InputSchema,
+        this.tools.push({
+          type: "function",
+          function: {
+            name: namespacedName,
+            description: tool.description || "",
+            parameters: tool.inputSchema as Record<string, unknown>,
+          },
         });
       }
 
@@ -53,8 +62,8 @@ export class McpManager {
     }
   }
 
-  getTools(): AnthropicTool[] {
-    return this.anthropicTools;
+  getTools(): ChatCompletionTool[] {
+    return this.tools;
   }
 
   async callTool(
@@ -92,6 +101,6 @@ export class McpManager {
     }
     this.servers = [];
     this.toolMap.clear();
-    this.anthropicTools = [];
+    this.tools = [];
   }
 }

@@ -2,7 +2,7 @@ const AGENT_SERVICE_URL =
   import.meta.env.VITE_AGENT_SERVICE_URL || "http://localhost:3002";
 
 export interface SSEEvent {
-  type: "text" | "tool_call" | "tool_result" | "done" | "error";
+  type: "text" | "tool_call" | "tool_result" | "properties" | "done" | "error";
   content?: string;
   name?: string;
   conversationId?: string;

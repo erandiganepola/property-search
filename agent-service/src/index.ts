@@ -27,8 +27,8 @@ if (!ASGARDEO_BASE_URL) {
   process.exit(1);
 }
 
-if (!process.env.ANTHROPIC_API_KEY) {
-  console.error("ANTHROPIC_API_KEY environment variable is required");
+if (!process.env.OPENROUTER_API_KEY) {
+  console.error("OPENROUTER_API_KEY environment variable is required");
   process.exit(1);
 }
 
@@ -107,6 +107,10 @@ app.post("/chat", async (req, res) => {
   }
 
   const conversationId = incomingConvId || randomUUID();
+  const isNew = !incomingConvId;
+  console.log(
+    `[Chat] Request received — conversationId: ${conversationId}${isNew ? " (new)" : ""}, messageLength: ${message.length}`
+  );
 
   // Set up SSE response
   res.setHeader("Content-Type", "text/event-stream");
@@ -121,6 +125,7 @@ app.post("/chat", async (req, res) => {
   try {
     const mcpManager = await getOrCreateMcpManager(accessToken);
     await runAgentLoop(message, conversationId, mcpManager, sendEvent);
+    console.log(`[Chat] Request complete — conversationId: ${conversationId}`);
   } catch (err) {
     console.error("[Chat] Error:", err);
     sendEvent({
@@ -139,6 +144,10 @@ app.get("/health", (_req, res) => {
 
 app.listen(PORT, () => {
   console.log(`Agent service running on port ${PORT}`);
+  console.log(`Model: ${process.env.MODEL || "anthropic/claude-sonnet-4.5"}`);
+  console.log(
+    `LLM base URL: ${process.env.OPENROUTER_BASE_URL || "https://openrouter.ai/api/v1"}`
+  );
   console.log(`CORS origin: ${CORS_ORIGIN}`);
   console.log(`Asgardeo base URL: ${ASGARDEO_BASE_URL}`);
   console.log(

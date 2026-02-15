@@ -1,10 +1,13 @@
 import { useState, useRef, useEffect, useCallback } from "react";
 import { useAuthContext } from "@asgardeo/auth-react";
+import { MessageCircle } from "lucide-react";
 import { streamChat } from "../api/agentClient";
 import type { SSEEvent } from "../api/agentClient";
 import ChatMessage from "./ChatMessage";
-import type { ChatMessageData } from "./ChatMessage";
+import type { ChatMessageData, ContentSegment } from "./ChatMessage";
 import ChatInput from "./ChatInput";
+import PropertyPanel from "./PropertyPanel";
+import type { Property } from "../data/properties";
 
 let messageIdCounter = 0;
 function nextId(): string {
@@ -16,6 +19,7 @@ export default function ChatView() {
   const [messages, setMessages] = useState<ChatMessageData[]>([]);
   const [streaming, setStreaming] = useState(false);
   const [conversationId, setConversationId] = useState<string | null>(null);
+  const [panelProperties, setPanelProperties] = useState<Property[] | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const abortRef = useRef<AbortController | null>(null);
 
@@ -40,7 +44,7 @@ export default function ChatView() {
         id: assistantId,
         role: "assistant",
         content: "",
-        toolCalls: [],
+        segments: [],
       };
       setMessages((prev) => [...prev, assistantMsg]);
       setStreaming(true);
@@ -55,31 +59,91 @@ export default function ChatView() {
           (event: SSEEvent) => {
             switch (event.type) {
               case "text":
-                // Append text to the current assistant message
                 setMessages((prev) =>
-                  prev.map((m) =>
-                    m.id === assistantId
-                      ? { ...m, content: m.content + (event.content || "") }
-                      : m
-                  )
+                  prev.map((m) => {
+                    if (m.id !== assistantId) return m;
+                    const segments = [...(m.segments || [])];
+                    const last = segments[segments.length - 1];
+                    if (last && last.type === "text") {
+                      // Append to existing text segment
+                      segments[segments.length - 1] = {
+                        ...last,
+                        content: last.content + (event.content || ""),
+                      };
+                    } else {
+                      // Start a new text segment
+                      segments.push({
+                        type: "text",
+                        content: event.content || "",
+                      });
+                    }
+                    return {
+                      ...m,
+                      content: m.content + (event.content || ""),
+                      segments,
+                    };
+                  })
                 );
                 break;
 
               case "tool_call":
-                // Add tool call indicator
                 setMessages((prev) =>
-                  prev.map((m) =>
-                    m.id === assistantId
-                      ? {
-                          ...m,
-                          toolCalls: [
-                            ...(m.toolCalls || []),
-                            event.name || "unknown",
-                          ],
-                        }
-                      : m
-                  )
+                  prev.map((m) => {
+                    if (m.id !== assistantId) return m;
+                    const segments: ContentSegment[] = [
+                      ...(m.segments || []),
+                      {
+                        type: "tool_call",
+                        content: event.name || "unknown",
+                        done: false,
+                      },
+                    ];
+                    return { ...m, segments };
+                  })
                 );
+                break;
+
+              case "tool_result":
+                setMessages((prev) =>
+                  prev.map((m) => {
+                    if (m.id !== assistantId) return m;
+                    const segments = (m.segments || []).map((seg) => {
+                      // Mark the matching tool_call as done
+                      if (
+                        seg.type === "tool_call" &&
+                        seg.content === (event.name || "") &&
+                        !seg.done
+                      ) {
+                        return { ...seg, done: true };
+                      }
+                      return seg;
+                    });
+                    return { ...m, segments };
+                  })
+                );
+                break;
+
+              case "properties":
+                try {
+                  const properties = JSON.parse(
+                    event.content || "[]"
+                  ) as Property[];
+                  setMessages((prev) =>
+                    prev.map((m) =>
+                      m.id === assistantId
+                        ? {
+                            ...m,
+                            properties: [
+                              ...(m.properties || []),
+                              ...properties,
+                            ],
+                          }
+                        : m
+                    )
+                  );
+                } catch {
+                  // Invalid JSON, skip
+                }
                 break;
 
               case "done":
@@ -91,16 +155,23 @@ export default function ChatView() {
 
               case "error":
                 setMessages((prev) =>
-                  prev.map((m) =>
-                    m.id === assistantId
-                      ? {
-                          ...m,
-                          content:
-                            m.content +
-                            `\n\n**Error:** ${event.content || "Something went wrong."}`,
-                        }
-                      : m
-                  )
+                  prev.map((m) => {
+                    if (m.id !== assistantId) return m;
+                    const segments: ContentSegment[] = [
+                      ...(m.segments || []),
+                      {
+                        type: "text",
+                        content: `\n\n**Error:** ${event.content || "Something went wrong."}`,
+                      },
+                    ];
+                    return {
+                      ...m,
+                      content:
+                        m.content +
+                        `\n\n**Error:** ${event.content || "Something went wrong."}`,
+                      segments,
+                    };
+                  })
                 );
                 setStreaming(false);
                 break;
@@ -110,7 +181,13 @@ export default function ChatView() {
             setMessages((prev) =>
               prev.map((m) =>
                 m.id === assistantId
-                  ? { ...m, content: `**Error:** ${error}` }
+                  ? {
+                      ...m,
+                      content: `**Error:** ${error}`,
+                      segments: [
+                        { type: "text", content: `**Error:** ${error}` },
+                      ],
+                    }
                   : m
               )
             );
@@ -123,7 +200,16 @@ export default function ChatView() {
         setMessages((prev) =>
           prev.map((m) =>
             m.id === assistantId
-              ? { ...m, content: "**Error:** Failed to get access token." }
+              ? {
+                  ...m,
+                  content: "**Error:** Failed to get access token.",
+                  segments: [
+                    {
+                      type: "text",
+                      content: "**Error:** Failed to get access token.",
+                    },
+                  ],
+                }
               : m
           )
         );
@@ -141,19 +227,7 @@ export default function ChatView() {
           {messages.length === 0 && (
             <div className="text-center py-20">
               <div className="w-16 h-16 bg-indigo-100 rounded-2xl flex items-center justify-center mx-auto mb-4">
-                <svg
-                  className="w-8 h-8 text-indigo-600"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={1.5}
-                    d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"
-                  />
-                </svg>
+                <MessageCircle className="w-8 h-8 text-indigo-600" />
               </div>
               <h2 className="text-lg font-semibold text-gray-900 mb-1">
                 Property Search Assistant
@@ -182,13 +256,18 @@ export default function ChatView() {
           )}
 
           {messages.map((msg) => (
-            <ChatMessage key={msg.id} message={msg} />
+            <ChatMessage
+              key={msg.id}
+              message={msg}
+              onViewProperties={(props) => setPanelProperties(props)}
+            />
           ))}
 
           {/* Streaming indicator */}
           {streaming &&
             messages.length > 0 &&
-            messages[messages.length - 1].content === "" && (
+            messages[messages.length - 1].content === "" &&
+            !(messages[messages.length - 1].segments?.length) && (
               <div className="flex justify-start mb-4">
                 <div className="bg-white border border-gray-200 rounded-2xl px-4 py-3 shadow-sm">
                   <div className="flex items-center gap-1.5">
@@ -212,6 +291,14 @@ export default function ChatView() {
 
       {/* Input area */}
       <ChatInput onSend={handleSend} disabled={streaming} />
+
+      {/* Property side panel */}
+      {panelProperties && (
+        <PropertyPanel
+          properties={panelProperties}
+          onClose={() => setPanelProperties(null)}
+        />
+      )}
     </div>
   );
 }

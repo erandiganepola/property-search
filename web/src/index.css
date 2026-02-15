@@ -1,1 +1,48 @@
 @import "tailwindcss";
+@plugin "@tailwindcss/typography";
+
+body {
+  font-family: "Plus Jakarta Sans", system-ui, sans-serif;
+}
+
+/* Editorial table styling for chat messages */
+.prose table {
+  border-collapse: collapse;
+  width: 100%;
+  font-size: 0.8125rem;
+  line-height: 1.5rem;
+  border-radius: 0.5rem;
+  overflow: hidden;
+}
+
+.prose thead {
+  border-bottom: 2px solid #e0e7ff;
+}
+
+.prose th {
+  padding: 0.625rem 0.75rem;
+  font-weight: 600;
+  text-align: left;
+  color: #374151;
+  background-color: #eef2ff;
+}
+
+.prose td {
+  padding: 0.5rem 0.75rem;
+  border-bottom: 1px solid #e5e7eb;
+}
+
+.prose tbody tr:nth-child(even) {
+  background-color: #f9fafb;
+}
+
+/* Panel slide-in animation */
+@keyframes slideInRight {
+  from { transform: translateX(100%); }
+  to   { transform: translateX(0); }
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}

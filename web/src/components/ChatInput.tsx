@@ -1,4 +1,5 @@
 import { useState, useRef } from "react";
+import { ArrowUp } from "lucide-react";
 
 interface ChatInputProps {
   onSend: (message: string) => void;
@@ -54,19 +55,7 @@ export default function ChatInput({ onSend, disabled }: ChatInputProps) {
           disabled={disabled || !text.trim()}
           className="shrink-0 bg-indigo-600 text-white p-2.5 rounded-xl hover:bg-indigo-700 disabled:opacity-40 disabled:cursor-not-allowed transition cursor-pointer"
         >
-          <svg
-            className="w-5 h-5"
-            fill="none"
-            stroke="currentColor"
-            viewBox="0 0 24 24"
-          >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth={2}
-              d="M12 19V5m0 0l-7 7m7-7l7 7"
-            />
-          </svg>
+          <ArrowUp className="w-5 h-5" />
         </button>
       </div>
     </div>

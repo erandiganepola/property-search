@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect } from "react";
+import { X, Check } from "lucide-react";
 import { US_STATES } from "../data/properties";
 
 interface StateSelectorProps {
@@ -63,9 +64,7 @@ export default function StateSelector({ selectedStates, onStatesChange }: StateS
               }}
               className="hover:text-indigo-600 cursor-pointer"
             >
-              <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-              </svg>
+              <X className="w-3 h-3" />
             </button>
           </span>
         ))}
@@ -90,9 +89,7 @@ export default function StateSelector({ selectedStates, onStatesChange }: StateS
             className="text-gray-400 hover:text-gray-600 cursor-pointer"
             title="Clear all"
           >
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-            </svg>
+            <X className="w-4 h-4" />
           </button>
         )}
       </div>
@@ -122,11 +119,7 @@ export default function StateSelector({ selectedStates, onStatesChange }: StateS
                         : "border-gray-300"
                     }`}
                   >
-                    {isSelected && (
-                      <svg className="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
-                      </svg>
-                    )}
+                    {isSelected && <Check className="w-3 h-3 text-white" />}
                   </span>
                   {state}
                 </li>
