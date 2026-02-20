@@ -1,11 +1,18 @@
-# Property Search
+# Property Search & Insurance Agent
 
-An AI-powered US property search application. Users chat with an LLM-powered assistant that searches listings, compares properties, calculates mortgages, gets neighborhood info, and generates insurance quotes — all exposed as MCP (Model Context Protocol) tools through WSO2 API Manager. Both LLM calls and MCP tool calls are routed through APIM, with Asgardeo OAuth2 authentication for the frontend.
+An AI-powered agent for US property search and insurance. Users chat with an LLM-powered assistant in natural language to search and compare property listings, calculate mortgages, explore neighborhoods, get personalized recommendations, and generate insurance quotes. The agent has access to 11 MCP tools (9 property + 2 insurance) exposed through WSO2 API Manager's MCP Gateway, with LLM calls routed through APIM's AI Gateway. The frontend is secured with Asgardeo OAuth2 + PKCE authentication, and scope-based access control (`list-rent`, `list-sale`) determines which property types each user can access.
 
 ## Architecture
 
 ```
-┌─────────────┐       SSE stream         ┌──────────────────┐
+┌───────────────────┐
+│     Asgardeo      │
+│  (OAuth2 + PKCE)  │
+└─────────▲─────────┘
+          │
+     login/consent
+          │
+┌─────────┴───┐       SSE stream         ┌──────────────────┐
 │   web/      │ ─────────────────────▶   │  agent-service/  │
 │   React UI  │                          │  Express + LLM   │
 │   :5173     │ ◀─────────────────────   │  :3002           │
@@ -22,14 +29,14 @@ An AI-powered US property search application. Users chat with an LLM-powered ass
                 │  │  (OpenAI     │  │                               │   │
                 │  │   proxy)     │  │  Property Search  Insurance   │   │
                 │  │              │  │  MCP (proxy)      MCP (REST   │   │
-                │  │              │  │                   API → MCP   │   │
-                │  └──────┬───────┘  └─────────|─────────────────── |┘   │
-                └─────────┼────────────────────|─────────────────── |────┘
-                          │                    |            .       | 
-                 ┌────────▼────────┐  ┌────────▼--──────────┐  ┌────▼────────┐
-                 │   OpenAI API    │  │ property-search-mcp │  │ insurance-  │
-                 │                 │  │ :3001               │  │ api/ :3003  │
-                 └─────────────────┘  └─────────────────────┘  └─────────────┘
+                │  │              │  │                   API → MCP)  │   │
+                │  └──────┬───────┘  └───────┬──────────────┬────────┘   │
+                └─────────┼──────────────────┼──────────────┼────────────┘
+                          │                  │              │
+                 ┌────────▼────────┐  ┌──────▼────────────┐  ┌──────▼──────┐
+                 │   OpenAI API    │  │ property-search-  │  │ insurance-  │
+                 │                 │  │ mcp/ :3001        │  │ api/ :3003  │
+                 └─────────────────┘  └───────────────────┘  └─────────────┘
 ```
 
 ### How It Technically Works
