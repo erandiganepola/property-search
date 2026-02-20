@@ -155,7 +155,7 @@ The Insurance REST API (backed by the Ballerina service in `insurance-api/`) exp
 
 Refer doc for more details - [Create from API](https://apim.docs.wso2.com/en/latest/ai-gateway/mcp-gateway/create-from-api/)
 
-![Insurance MCP Server in APIM Publisher](resources/Insurance-mcp.png)
+![Insurance MCP Server in APIM Publisher](resources/Insurance-MCP.png)
 
 Deploy and publish all three APIs.
 
