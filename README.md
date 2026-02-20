@@ -254,6 +254,8 @@ cd web && npm run dev
 
 Open `http://localhost:5173`, sign in via Asgardeo, and start chatting.
 
+> **Note:** The agent service fetches an APIM OAuth2 token at startup and uses it for all MCP connections. If you see credential errors when calling tools (e.g. "credential error" searching properties), restart the agent service to refresh the token: `cd agent-service && npm run build && npm start`.
+
 ## Project Structure
 
 ```
