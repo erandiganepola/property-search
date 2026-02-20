@@ -166,6 +166,38 @@ Deploy and publish all three APIs.
 3. Generate production keys (client credentials grant)
 4. Add the consumer key and secret to `agent-service/.env`
 
+### MCP Hub — Discover and Test MCP Tools
+
+WSO2 API Manager can also operate as a centralized **MCP Hub**, giving developers a single place to discover, browse, and test all published MCP Servers. When enabled, the Developer Portal surfaces MCP Servers alongside (or instead of) traditional APIs, depending on the configured mode:
+
+| Mode | Description |
+|------|-------------|
+| `MCP_ONLY` | Developer Portal shows only MCP Servers |
+| `HYBRID` | Both traditional APIs and MCP Servers are listed |
+| `API_ONLY` | Traditional API-only portal (default) |
+
+The mode is set in `deployment.toml`:
+
+```toml
+[apim.devportal]
+developer_portal_type = "HYBRID"
+```
+
+#### MCP Playground
+
+The Developer Portal includes a built-in **MCP Playground** — an interactive testing interface for MCP Servers. After subscribing to an MCP Server, developers can:
+
+1. Open the MCP Server's overview page and click **MCP Playground**
+2. Authenticate using an access token or generate a test key directly in the Playground
+3. **List Tools** to discover all available tools and their schemas
+4. Select a tool, fill in parameters, and **execute** it to see real-time responses
+
+This is useful for verifying that the Property Search and Insurance MCP Servers are working correctly before wiring them into the agent service.
+
+![MCP Hub in Developer Portal](resources/MCP-hub.png)
+
+Refer docs for more details — [Invoke an MCP Server Using the Playground](https://apim.docs.wso2.com/en/latest/ai-gateway/mcp-gateway/invoke-a-mcp-server-using-playground/)
+
 ## Quick Start
 
 ### Prerequisites
