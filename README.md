@@ -125,7 +125,7 @@ To route LLM calls through APIM, create an **AI API** that proxies the OpenAI RE
 
 Refer doc for more details - https://apim.docs.wso2.com/en/latest/api-design-manage/design/create-api/create-ai-api/create-an-ai-api/
 
-![OpenAI AI API in APIM Publisher](resources/OpenAI-API.png)
+![OpenAI AI API in APIM Publisher](resources/AI-API.png)
 
 ### 2. MCP Server (Proxy) — Property Search
 
@@ -133,7 +133,7 @@ For backend services that already speak the MCP protocol, create an **MCP Server
 
 Refer doc for more details - https://apim.docs.wso2.com/en/latest/ai-gateway/mcp-gateway/create-from-mcp-server/
 
-![Property Search MCP Proxy in APIM Publisher](resources/Property-search-proxy-MCP.png)
+![Property Search MCP Proxy in APIM Publisher](resources/Property-search-mcp.png)
 
 ### 3. MCP Server (from OpenAPI) — Insurance API
 
@@ -141,7 +141,7 @@ For REST APIs that need to be consumed as MCP tools by LLM agents, create an **M
 
 Refer doc for more details - https://apim.docs.wso2.com/en/latest/ai-gateway/mcp-gateway/create-from-api/
 
-![Insurance MCP Server in APIM Publisher](resources/Insurance-MCP.png)
+![Insurance MCP Server in APIM Publisher](resources/Insurance-mcp.png)
 
 ### Insurance API — OpenAPI Definition
 
