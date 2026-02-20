@@ -5,7 +5,7 @@ An AI-powered US property search application. Users chat with an LLM-powered ass
 ## Architecture
 
 ```
-┌─────────────┐       SSE stream        ┌──────────────────┐
+┌─────────────┐       SSE stream         ┌──────────────────┐
 │   web/      │ ─────────────────────▶   │  agent-service/  │
 │   React UI  │                          │  Express + LLM   │
 │   :5173     │ ◀─────────────────────   │  :3002           │
@@ -17,22 +17,22 @@ An AI-powered US property search application. Users chat with an LLM-powered ass
                 ┌─────────────────────────────────▼──────────────────────┐
                 │              WSO2 API Manager 4.6  :8243               │
                 │                                                        │
-                │  ┌──────────────┐  ┌───────────────────────────────┐  │
-                │  │  AI Gateway  │  │          MCP Gateway          │  │
-                │  │  (OpenAI     │  │                               │  │
-                │  │   proxy)     │  │  Property Search  Insurance   │  │
-                │  │              │  │  MCP (proxy)      MCP (REST   │  │
-                │  │              │  │                    → MCP)      │  │
-                │  └──────┬───────┘  └───────┬──────────────┬────────┘  │
-                └─────────┼──────────────────┼──────────────┼───────────┘
-                          │                  │              │
-                 ┌────────▼────────┐  ┌─────────▼──────────┐  ┌────▼────────┐
+                │  ┌──────────────┐  ┌───────────────────────────────┐   │
+                │  │  AI Gateway  │  │          MCP Gateway          │   │
+                │  │  (OpenAI     │  │                               │   │
+                │  │   proxy)     │  │  Property Search  Insurance   │   │
+                │  │              │  │  MCP (proxy)      MCP (REST   │   │
+                │  │              │  │                   API → MCP   │   │
+                │  └──────┬───────┘  └─────────|─────────────────── |┘   │
+                └─────────┼────────────────────|─────────────────── |────┘
+                          │                    |            .       | 
+                 ┌────────▼────────┐  ┌────────▼--──────────┐  ┌────▼────────┐
                  │   OpenAI API    │  │ property-search-mcp │  │ insurance-  │
                  │                 │  │ :3001               │  │ api/ :3003  │
                  └─────────────────┘  └─────────────────────┘  └─────────────┘
 ```
 
-### How It Works
+### How It Technically Works
 
 1. **User chats** in the React frontend, which streams messages to the agent service via SSE
 2. **Agent service** authenticates to APIM using client credentials (OAuth2) and gets a token
@@ -80,6 +80,34 @@ An AI-powered US property search application. Users chat with an LLM-powered ass
 | `getInsurancePlans` | List available insurance coverage plans |
 | `generateInsuranceQuote` | Calculate insurance premium for a property |
 
+## User Experience
+
+### 1. Landing Page
+
+The application opens with a login screen featuring a property background.
+
+![Login Page](resources/Login.png)
+
+### 2. Asgardeo Authentication
+
+Clicking **Sign In** redirects the user to the Asgardeo identity provider (or WSO2 IAM as configured). Users can authenticate with their username and password, or use social login (e.g., Google). This ensures secure, standards-based OAuth2 + PKCE authentication before accessing the application.
+
+![Asgardeo Login](resources/Asgardeo-login.png)
+
+### 3. AI-Powered Chat Interface
+
+Once authenticated, users land in the chat interface where they can interact with the AI assistant using natural language. The assistant can:
+
+- Search and compare properties across multiple states
+- Display property comparisons in a structured table (price, bedrooms, bathrooms, square footage)
+- Show property images inline
+- Fetch insurance plans and generate quotes
+- Calculate mortgage estimates
+
+Tool calls (e.g., *Search Properties*, *GetInsurancePlans*) are shown as interactive pills in the conversation, giving users visibility into what the agent is doing behind the scenes.
+
+![Chat View](resources/Chat.png)
+
 ## Quick Start
 
 ### Prerequisites
@@ -118,7 +146,7 @@ The agent service needs:
 
 1. Start APIM: `<APIM_HOME>/bin/api-manager.sh`
 2. In the **Publisher Portal** (`https://localhost:9443/publisher`):
-   - **AI Gateway**: Create REST API proxying `https://api.openai.com/v1`, configure endpoint security with the OpenAI API key (`Authorization: Bearer`)
+   - **AI Gateway**: Create REST API proxying `https://api.openai.com/v1`, configure endpoint security with the OpenAI API key (`Authorization: Bearer`). Follow the official documentation and add policies as Guardrails for the AI API - https://apim.docs.wso2.com/en/latest/ai-gateway/ai-guardrails/overview/
    - **MCP Gateway**: Create MCP Server from existing MCP → proxy `http://localhost:3001/mcp`
    - **MCP Gateway**: Create MCP Server from OpenAPI → import `insurance-api/api_openapi.yaml`, set endpoint to `http://localhost:3003`
    - Deploy and publish all three

@@ -1,0 +1,1168 @@
+{
+	"info": {
+		"_postman_id": "agent-identity-oauth2-flows",
+		"name": "Agent Identity — OAuth 2.0 for AI Agents",
+		"description": "Demonstrates the OAuth 2.0 extension for AI agents acting on behalf of users (draft-oauth-ai-agents-on-behalf-of-user-02) and RFC 8693 token exchange for chained agent delegation.\n\nFour sections:\n0. **Obtain Agent JWTs** — Each agent authenticates via client credentials to get a JWT (the client_secret is NOT the actor_token — it's used to obtain one)\n1. **Initial Delegation** — Auth code flow (public client, PKCE) with `requested_actor` + `actor_token`\n2. **API Invocation** — Using the delegated token to call APIM-protected APIs\n3. **Chained Delegation** — RFC 8693 token exchange for multi-agent chains\n\nKey distinction:\n- The **SPA** (React frontend) is a **public client** — no client_secret, uses PKCE\n- Each **AI agent** is a **confidential client** — has client_id + client_secret, uses client_credentials grant to obtain its JWT",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+	},
+	"variable": [
+		{
+			"key": "asgardeo_base_url",
+			"value": "https://api.asgardeo.io/t/erandisaorg",
+			"type": "string"
+		},
+		{
+			"key": "apim_gateway_url",
+			"value": "https://localhost:8243",
+			"type": "string"
+		},
+		{
+			"key": "apim_token_url",
+			"value": "https://localhost:9443/oauth2/token",
+			"type": "string"
+		},
+		{
+			"key": "spa_client_id",
+			"value": "YOUR_SPA_CLIENT_ID",
+			"type": "string",
+			"description": "Asgardeo SPA (public client) — no client_secret, uses PKCE"
+		},
+		{
+			"key": "redirect_uri",
+			"value": "http://localhost:5173/callback",
+			"type": "string"
+		},
+		{
+			"key": "authorization_code",
+			"value": "",
+			"type": "string"
+		},
+		{
+			"key": "code_verifier",
+			"value": "dBjftJeZ4CVP-mB92K27uhbUJU1p1r_wW1gFWFOEjXk",
+			"type": "string"
+		},
+		{
+			"key": "code_challenge",
+			"value": "E9Melhoa2OwvFrEMTJguCHaoeK1t8URWbuGJSstw-cM",
+			"type": "string"
+		},
+		{
+			"key": "agent_property_search_client_id",
+			"value": "YOUR_PROPERTY_SEARCH_AGENT_CLIENT_ID",
+			"type": "string",
+			"description": "Asgardeo app registered for the property-search agent (confidential client)"
+		},
+		{
+			"key": "agent_property_search_client_secret",
+			"value": "YOUR_PROPERTY_SEARCH_AGENT_CLIENT_SECRET",
+			"type": "string",
+			"description": "Client secret for the property-search agent app (e.g. QDgT8aN&rR%S4cK%)"
+		},
+		{
+			"key": "agent_insurance_client_id",
+			"value": "YOUR_INSURANCE_AGENT_CLIENT_ID",
+			"type": "string",
+			"description": "Asgardeo app registered for the insurance-quote agent (confidential client)"
+		},
+		{
+			"key": "agent_insurance_client_secret",
+			"value": "YOUR_INSURANCE_AGENT_CLIENT_SECRET",
+			"type": "string",
+			"description": "Client secret for the insurance-quote agent app"
+		},
+		{
+			"key": "agent_risk_client_id",
+			"value": "YOUR_RISK_AGENT_CLIENT_ID",
+			"type": "string",
+			"description": "Asgardeo app registered for the risk-assessment agent (confidential client)"
+		},
+		{
+			"key": "agent_risk_client_secret",
+			"value": "YOUR_RISK_AGENT_CLIENT_SECRET",
+			"type": "string",
+			"description": "Client secret for the risk-assessment agent app"
+		},
+		{
+			"key": "actor_token_property_search",
+			"value": "",
+			"type": "string",
+			"description": "Auto-populated — JWT obtained via client_credentials for the property-search agent"
+		},
+		{
+			"key": "actor_token_insurance",
+			"value": "",
+			"type": "string",
+			"description": "Auto-populated — JWT obtained via client_credentials for the insurance agent"
+		},
+		{
+			"key": "actor_token_risk",
+			"value": "",
+			"type": "string",
+			"description": "Auto-populated — JWT obtained via client_credentials for the risk agent"
+		},
+		{
+			"key": "delegated_access_token",
+			"value": "",
+			"type": "string",
+			"description": "Auto-populated — token with act claim (user + property-search-agent)"
+		},
+		{
+			"key": "chained_token_insurance",
+			"value": "",
+			"type": "string",
+			"description": "Auto-populated — token with nested act claims (user → property-search-agent → insurance-agent)"
+		},
+		{
+			"key": "chained_token_risk",
+			"value": "",
+			"type": "string",
+			"description": "Auto-populated — token with 3-level nested act claims"
+		}
+	],
+	"item": [
+		{
+			"name": "0. Obtain Agent JWTs (Prerequisites)",
+			"description": "Each AI agent is registered as a **confidential client** (standard app) in Asgardeo with a client_id and client_secret.\n\nBefore the delegation flow, each agent authenticates via **client credentials grant** to obtain a JWT access token. This JWT (containing the agent's `sub` claim) becomes the `actor_token` in subsequent requests.\n\nThe client_secret you see in Asgardeo (e.g. `QDgT8aN&rR%S4cK%`) is used here — it's NOT the actor_token itself.",
+			"item": [
+				{
+					"name": "0a. Get Property Search Agent JWT",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"if (pm.response.code === 200) {",
+									"    var jsonData = pm.response.json();",
+									"    pm.collectionVariables.set('actor_token_property_search', jsonData.access_token);",
+									"    ",
+									"    var parts = jsonData.access_token.split('.');",
+									"    if (parts.length === 3) {",
+									"        var payload = JSON.parse(atob(parts[1]));",
+									"        console.log('=== Property Search Agent JWT ===');",
+									"        console.log('sub:', payload.sub);",
+									"        console.log('iss:', payload.iss);",
+									"        console.log('This JWT will be used as actor_token in Step 1b');",
+									"    }",
+									"    ",
+									"    pm.test('Agent JWT obtained', function() {",
+									"        pm.expect(jsonData.access_token).to.not.be.empty;",
+									"    });",
+									"}"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/x-www-form-urlencoded"
+							}
+						],
+						"body": {
+							"mode": "urlencoded",
+							"urlencoded": [
+								{
+									"key": "grant_type",
+									"value": "client_credentials",
+									"description": "Agent authenticates with its own credentials"
+								},
+								{
+									"key": "client_id",
+									"value": "{{agent_property_search_client_id}}",
+									"description": "Agent's Asgardeo app client_id"
+								},
+								{
+									"key": "client_secret",
+									"value": "{{agent_property_search_client_secret}}",
+									"description": "Agent's Asgardeo app client_secret (e.g. QDgT8aN&rR%S4cK%)"
+								}
+							]
+						},
+						"url": {
+							"raw": "{{asgardeo_base_url}}/oauth2/token",
+							"host": [
+								"{{asgardeo_base_url}}"
+							],
+							"path": [
+								"oauth2",
+								"token"
+							]
+						},
+						"description": "The property search agent authenticates with Asgardeo using client credentials to get a JWT.\n\nIn Asgardeo:\n1. Register a **Standard-Based Application** (confidential client) for the agent\n2. Name it something like `property-search-agent-v1`\n3. Enable the **Client Credentials** grant type\n4. Copy the client_id and client_secret\n\nThe returned JWT's `sub` claim identifies the agent. This JWT becomes the `actor_token` in Step 1b."
+					},
+					"response": [
+						{
+							"name": "200 OK — Agent JWT",
+							"status": "OK",
+							"code": 200,
+							"header": [
+								{
+									"key": "Content-Type",
+									"value": "application/json;charset=UTF-8"
+								}
+							],
+							"body": "{\n  \"access_token\": \"eyJhbGciOiJSUzI1NiJ9.eyJpc3MiOiJodHRwczovL2FwaS5hc2dhcmRlby5pby90L2VyYW5kaXNhb3JnL29hdXRoMi90b2tlbiIsInN1YiI6InByb3BlcnR5LXNlYXJjaC1hZ2VudC12MSIsImV4cCI6MTczOTYwMzYwMH0.signature\",\n  \"token_type\": \"Bearer\",\n  \"expires_in\": 3600\n}",
+							"_postman_previewlanguage": "json"
+						}
+					]
+				},
+				{
+					"name": "0b. Get Insurance Agent JWT",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"if (pm.response.code === 200) {",
+									"    var jsonData = pm.response.json();",
+									"    pm.collectionVariables.set('actor_token_insurance', jsonData.access_token);",
+									"    ",
+									"    pm.test('Insurance agent JWT obtained', function() {",
+									"        pm.expect(jsonData.access_token).to.not.be.empty;",
+									"    });",
+									"}"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/x-www-form-urlencoded"
+							}
+						],
+						"body": {
+							"mode": "urlencoded",
+							"urlencoded": [
+								{
+									"key": "grant_type",
+									"value": "client_credentials"
+								},
+								{
+									"key": "client_id",
+									"value": "{{agent_insurance_client_id}}"
+								},
+								{
+									"key": "client_secret",
+									"value": "{{agent_insurance_client_secret}}"
+								}
+							]
+						},
+						"url": {
+							"raw": "{{asgardeo_base_url}}/oauth2/token",
+							"host": [
+								"{{asgardeo_base_url}}"
+							],
+							"path": [
+								"oauth2",
+								"token"
+							]
+						},
+						"description": "Insurance quote agent authenticates to get its JWT. Used as actor_token in Step 3a (token exchange)."
+					},
+					"response": []
+				},
+				{
+					"name": "0c. Get Risk Assessment Agent JWT",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"if (pm.response.code === 200) {",
+									"    var jsonData = pm.response.json();",
+									"    pm.collectionVariables.set('actor_token_risk', jsonData.access_token);",
+									"    ",
+									"    pm.test('Risk agent JWT obtained', function() {",
+									"        pm.expect(jsonData.access_token).to.not.be.empty;",
+									"    });",
+									"}"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/x-www-form-urlencoded"
+							}
+						],
+						"body": {
+							"mode": "urlencoded",
+							"urlencoded": [
+								{
+									"key": "grant_type",
+									"value": "client_credentials"
+								},
+								{
+									"key": "client_id",
+									"value": "{{agent_risk_client_id}}"
+								},
+								{
+									"key": "client_secret",
+									"value": "{{agent_risk_client_secret}}"
+								}
+							]
+						},
+						"url": {
+							"raw": "{{asgardeo_base_url}}/oauth2/token",
+							"host": [
+								"{{asgardeo_base_url}}"
+							],
+							"path": [
+								"oauth2",
+								"token"
+							]
+						},
+						"description": "Risk assessment agent authenticates to get its JWT. Used as actor_token in Step 3b (token exchange)."
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "1. Initial Delegation (Draft Spec)",
+			"description": "Auth code flow with `requested_actor` parameter — user explicitly consents to a specific AI agent acting on their behalf.\n\nThe client app is a **public client** (SPA) — no client_secret, secured by PKCE only.\n\nPrerequisite: Run Step 0a first to obtain the property search agent's JWT.\n\nSpec: draft-oauth-ai-agents-on-behalf-of-user-02",
+			"item": [
+				{
+					"name": "1a. Authorization Request (open in browser)",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{asgardeo_base_url}}/oauth2/authorize?response_type=code&client_id={{spa_client_id}}&redirect_uri={{redirect_uri}}&scope=list-rent list-sale openid&state=agent_identity_test_123&code_challenge={{code_challenge}}&code_challenge_method=S256&requested_actor=property-search-agent-v1",
+							"host": [
+								"{{asgardeo_base_url}}"
+							],
+							"path": [
+								"oauth2",
+								"authorize"
+							],
+							"query": [
+								{
+									"key": "response_type",
+									"value": "code",
+									"description": "Standard OAuth2 auth code flow"
+								},
+								{
+									"key": "client_id",
+									"value": "{{spa_client_id}}",
+									"description": "Asgardeo SPA (public client) — no client_secret needed"
+								},
+								{
+									"key": "redirect_uri",
+									"value": "{{redirect_uri}}",
+									"description": "Must match registered redirect URI"
+								},
+								{
+									"key": "scope",
+									"value": "list-rent list-sale openid",
+									"description": "Scopes the agent is requesting on behalf of the user"
+								},
+								{
+									"key": "state",
+									"value": "agent_identity_test_123",
+									"description": "CSRF protection"
+								},
+								{
+									"key": "code_challenge",
+									"value": "{{code_challenge}}",
+									"description": "PKCE code challenge (S256 of code_verifier)"
+								},
+								{
+									"key": "code_challenge_method",
+									"value": "S256",
+									"description": "PKCE method — S256 required by the spec"
+								},
+								{
+									"key": "requested_actor",
+									"value": "property-search-agent-v1",
+									"description": "NEW PARAM (draft spec) — unique identifier of the AI agent requesting delegation. The consent screen shows this to the user."
+								}
+							]
+						},
+						"description": "**Open this URL in a browser** (not Postman) to trigger the consent flow.\n\nThe user sees a consent screen:\n> \"Property Search Agent v1\" wants to act on your behalf\n> - Search rental properties\n> - Search sale properties\n> [Allow] [Deny]\n\nAfter approval, the browser redirects to:\n`http://localhost:5173/callback?code=AUTHORIZATION_CODE&state=agent_identity_test_123`\n\nCopy the `code` parameter and set it as `authorization_code` collection variable."
+					},
+					"response": [
+						{
+							"name": "302 Redirect (after user consent)",
+							"originalRequest": {
+								"method": "GET",
+								"url": {
+									"raw": "{{asgardeo_base_url}}/oauth2/authorize?response_type=code&client_id={{client_id}}&redirect_uri={{redirect_uri}}&scope=list-rent list-sale openid&state=agent_identity_test_123&code_challenge={{code_challenge}}&code_challenge_method=S256&requested_actor=property-search-agent-v1"
+								}
+							},
+							"status": "Found",
+							"code": 302,
+							"header": [
+								{
+									"key": "Location",
+									"value": "http://localhost:5173/callback?code=SplxlOBeZQQYbYS6WxSbIA&state=agent_identity_test_123"
+								}
+							],
+							"body": ""
+						}
+					]
+				},
+				{
+					"name": "1b. Token Request (with actor_token)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"if (pm.response.code === 200) {",
+									"    var jsonData = pm.response.json();",
+									"    pm.collectionVariables.set('delegated_access_token', jsonData.access_token);",
+									"    ",
+									"    // Decode and display the JWT payload",
+									"    var parts = jsonData.access_token.split('.');",
+									"    if (parts.length === 3) {",
+									"        var payload = JSON.parse(atob(parts[1]));",
+									"        console.log('=== Delegated Token Claims ===');",
+									"        console.log('sub (user):', payload.sub);",
+									"        console.log('azp (client):', payload.azp);",
+									"        console.log('act (agent):', JSON.stringify(payload.act));",
+									"        console.log('scope:', payload.scope);",
+									"        console.log('Full payload:', JSON.stringify(payload, null, 2));",
+									"        ",
+									"        // Verify act claim exists",
+									"        pm.test('Token contains act claim', function() {",
+									"            pm.expect(payload.act).to.not.be.undefined;",
+									"            pm.expect(payload.act.sub).to.equal('property-search-agent-v1');",
+									"        });",
+									"        ",
+									"        pm.test('Token contains user as subject', function() {",
+									"            pm.expect(payload.sub).to.not.be.undefined;",
+									"        });",
+									"    }",
+									"}"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/x-www-form-urlencoded"
+							}
+						],
+						"body": {
+							"mode": "urlencoded",
+							"urlencoded": [
+								{
+									"key": "grant_type",
+									"value": "authorization_code",
+									"description": "Standard auth code grant"
+								},
+								{
+									"key": "client_id",
+									"value": "{{spa_client_id}}",
+									"description": "SPA public client ID — no client_secret (PKCE secures the flow)"
+								},
+								{
+									"key": "code",
+									"value": "{{authorization_code}}",
+									"description": "Auth code from Step 1a redirect"
+								},
+								{
+									"key": "code_verifier",
+									"value": "{{code_verifier}}",
+									"description": "PKCE code verifier (proves the same client that started the flow)"
+								},
+								{
+									"key": "redirect_uri",
+									"value": "{{redirect_uri}}",
+									"description": "Must match the redirect_uri from Step 1a"
+								},
+								{
+									"key": "actor_token",
+									"value": "{{actor_token_property_search}}",
+									"description": "NEW PARAM (draft spec) — JWT obtained in Step 0a via agent's client credentials. Its sub claim MUST match requested_actor from Step 1a."
+								}
+							]
+						},
+						"url": {
+							"raw": "{{asgardeo_base_url}}/oauth2/token",
+							"host": [
+								"{{asgardeo_base_url}}"
+							],
+							"path": [
+								"oauth2",
+								"token"
+							]
+						},
+						"description": "Exchange the authorization code for a **delegated access token**.\n\nThis is a **public client** (SPA) — no client_secret. PKCE (`code_verifier`) proves the client is the same one that started the flow.\n\nThe `actor_token` is the JWT obtained in **Step 0a** via the agent's own client credentials. Its `sub` claim MUST match the `requested_actor` from Step 1a.\n\nHow the agent gets its JWT:\n1. Agent is registered as a confidential app in Asgardeo (has client_id + client_secret like `QDgT8aN&rR%S4cK%`)\n2. Agent calls `POST /oauth2/token` with `grant_type=client_credentials` (Step 0a)\n3. Gets back a JWT with `sub: property-search-agent-v1`\n4. That JWT is the `actor_token` here\n\nThe authorization server validates:\n1. Auth code is valid and not expired\n2. PKCE verifier matches the challenge\n3. `actor_token` is a valid JWT\n4. `actor_token.sub` matches the `requested_actor` the user consented to\n\nThe resulting access token contains:\n```json\n{\n  \"sub\": \"erandi@erandisaorg\",\n  \"azp\": \"property_search_web_app\",\n  \"act\": { \"sub\": \"property-search-agent-v1\" },\n  \"scope\": \"list-rent list-sale\"\n}\n```"
+					},
+					"response": [
+						{
+							"name": "200 OK — Delegated Token Issued",
+							"status": "OK",
+							"code": 200,
+							"header": [
+								{
+									"key": "Content-Type",
+									"value": "application/json;charset=UTF-8"
+								},
+								{
+									"key": "Cache-Control",
+									"value": "no-store"
+								}
+							],
+							"body": "{\n  \"access_token\": \"eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJodHRwczovL2FwaS5hc2dhcmRlby5pby90L2VyYW5kaXNhb3JnL29hdXRoMi90b2tlbiIsImF1ZCI6Imh0dHBzOi8vbG9jYWxob3N0OjgyNDMiLCJzdWIiOiJlcmFuZGlAZXJhbmRpc2FvcmciLCJhenAiOiJwcm9wZXJ0eV9zZWFyY2hfd2ViX2FwcCIsInNjb3BlIjoibGlzdC1yZW50IGxpc3Qtc2FsZSIsImV4cCI6MTczOTYwMzYwMCwiaWF0IjoxNzM5NjAwMDAwLCJqdGkiOiJhMWIyYzNkNC1lNWY2LTc4OTAiLCJhY3QiOnsic3ViIjoicHJvcGVydHktc2VhcmNoLWFnZW50LXYxIn19.signature\",\n  \"token_type\": \"Bearer\",\n  \"expires_in\": 3600,\n  \"scope\": \"list-rent list-sale\"\n}",
+							"_postman_previewlanguage": "json"
+						},
+						{
+							"name": "400 Bad Request — Actor Mismatch",
+							"status": "Bad Request",
+							"code": 400,
+							"header": [
+								{
+									"key": "Content-Type",
+									"value": "application/json;charset=UTF-8"
+								}
+							],
+							"body": "{\n  \"error\": \"invalid_grant\",\n  \"error_description\": \"The actor_token subject does not match the requested_actor from the authorization request\"\n}",
+							"_postman_previewlanguage": "json"
+						}
+					]
+				}
+			]
+		},
+		{
+			"name": "2. API Invocation (Delegated Token)",
+			"description": "Use the delegated access token (with `act` claim) to call APIM-protected APIs.\n\nAPIM can enforce policies based on all three identities: user (`sub`), client app (`azp`), and AI agent (`act.sub`).",
+			"item": [
+				{
+					"name": "2a. MCP Gateway — Search Properties",
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{delegated_access_token}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"jsonrpc\": \"2.0\",\n  \"method\": \"tools/call\",\n  \"params\": {\n    \"name\": \"search_properties\",\n    \"arguments\": {\n      \"states\": [\"California\", \"New York\"],\n      \"type\": \"long-rent\"\n    }\n  },\n  \"id\": 1\n}"
+						},
+						"url": {
+							"raw": "{{apim_gateway_url}}/property-search/1.0.0/mcp",
+							"host": [
+								"{{apim_gateway_url}}"
+							],
+							"path": [
+								"property-search",
+								"1.0.0",
+								"mcp"
+							]
+						},
+						"description": "Calls the Property Search MCP server through APIM's MCP Gateway.\n\nAPIM validates the token and can enforce:\n- **User-level**: `sub=erandi` → user's rate limit, subscription tier\n- **Agent-level**: `act.sub=property-search-agent-v1` → allowed tool: search_properties ✅\n- **Scope-level**: `list-rent` → only rental properties returned\n\nThe MCP server also receives the token and filters results by scope."
+					},
+					"response": [
+						{
+							"name": "200 OK — Properties Found",
+							"status": "OK",
+							"code": 200,
+							"header": [
+								{
+									"key": "Content-Type",
+									"value": "application/json"
+								}
+							],
+							"body": "{\n  \"jsonrpc\": \"2.0\",\n  \"result\": {\n    \"content\": [\n      {\n        \"type\": \"text\",\n        \"text\": \"[{\\\"id\\\":\\\"ca-lr-001\\\",\\\"title\\\":\\\"Modern Downtown LA Apartment\\\",\\\"type\\\":\\\"long-rent\\\",\\\"price\\\":3200,\\\"state\\\":\\\"California\\\",\\\"beds\\\":2,\\\"baths\\\":2,\\\"sqft\\\":1100}]\"\n      }\n    ]\n  },\n  \"id\": 1\n}",
+							"_postman_previewlanguage": "json"
+						},
+						{
+							"name": "403 Forbidden — Agent Not Authorized for Tool",
+							"status": "Forbidden",
+							"code": 403,
+							"header": [
+								{
+									"key": "WWW-Authenticate",
+									"value": "Bearer error=\"insufficient_scope\", error_description=\"Agent property-search-agent-v1 is not authorized for tool calculate_mortgage\", required_scope=\"mortgage:calculate\""
+								},
+								{
+									"key": "Content-Type",
+									"value": "application/json"
+								}
+							],
+							"body": "{\n  \"error\": \"insufficient_scope\",\n  \"error_description\": \"Agent property-search-agent-v1 is not authorized for tool calculate_mortgage\",\n  \"required_scope\": \"mortgage:calculate\"\n}",
+							"_postman_previewlanguage": "json"
+						}
+					]
+				},
+				{
+					"name": "2b. MCP Gateway — Compare Properties",
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{delegated_access_token}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"jsonrpc\": \"2.0\",\n  \"method\": \"tools/call\",\n  \"params\": {\n    \"name\": \"compare_properties\",\n    \"arguments\": {\n      \"propertyIds\": [\"ca-lr-001\", \"ny-lr-001\"]\n    }\n  },\n  \"id\": 2\n}"
+						},
+						"url": {
+							"raw": "{{apim_gateway_url}}/property-search/1.0.0/mcp",
+							"host": [
+								"{{apim_gateway_url}}"
+							],
+							"path": [
+								"property-search",
+								"1.0.0",
+								"mcp"
+							]
+						},
+						"description": "Compare multiple properties side-by-side.\n\nSame delegated token — APIM and the MCP server both see the full delegation chain."
+					},
+					"response": []
+				},
+				{
+					"name": "2c. AI Gateway — LLM Chat Completion",
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{delegated_access_token}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"model\": \"gpt-4o-mini\",\n  \"max_tokens\": 512,\n  \"messages\": [\n    {\n      \"role\": \"system\",\n      \"content\": \"You are a US property search assistant.\"\n    },\n    {\n      \"role\": \"user\",\n      \"content\": \"Find me affordable 2-bedroom rentals in California\"\n    }\n  ]\n}"
+						},
+						"url": {
+							"raw": "{{apim_gateway_url}}/openaiapi/2.3.0/chat/completions",
+							"host": [
+								"{{apim_gateway_url}}"
+							],
+							"path": [
+								"openaiapi",
+								"2.3.0",
+								"chat",
+								"completions"
+							]
+						},
+						"description": "LLM call routed through APIM AI Gateway.\n\nAPIM can log: `user=erandi, agent=property-search-agent-v1, model=gpt-4o-mini, tokens_used=XXX`\n\nWith agent identity, APIM could enforce:\n- Agent-specific model restrictions (e.g., only gpt-4o-mini, not gpt-4o)\n- Per-agent token budgets\n- Agent-specific rate limits separate from user rate limits"
+					},
+					"response": []
+				},
+				{
+					"name": "2d. Insurance MCP Gateway",
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{delegated_access_token}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"jsonrpc\": \"2.0\",\n  \"method\": \"tools/call\",\n  \"params\": {\n    \"name\": \"getInsurancePlans\",\n    \"arguments\": {}\n  },\n  \"id\": 3\n}"
+						},
+						"url": {
+							"raw": "{{apim_gateway_url}}/insurance/1.0.0/mcp",
+							"host": [
+								"{{apim_gateway_url}}"
+							],
+							"path": [
+								"insurance",
+								"1.0.0",
+								"mcp"
+							]
+						},
+						"description": "Call the Insurance MCP API (REST→MCP converted by APIM).\n\nThe delegated token lets APIM enforce whether property-search-agent-v1 is allowed to access insurance tools."
+					},
+					"response": []
+				},
+				{
+					"name": "2e. Resource Server Challenge (401 — no act claim)",
+					"request": {
+						"auth": {
+							"type": "noauth"
+						},
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer PLAIN_TOKEN_WITHOUT_ACT_CLAIM",
+								"description": "A regular OAuth2 token without act claim — agent identity missing"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"jsonrpc\": \"2.0\",\n  \"method\": \"tools/call\",\n  \"params\": {\n    \"name\": \"search_properties\",\n    \"arguments\": { \"states\": [\"California\"] }\n  },\n  \"id\": 4\n}"
+						},
+						"url": {
+							"raw": "{{apim_gateway_url}}/property-search/1.0.0/mcp",
+							"host": [
+								"{{apim_gateway_url}}"
+							],
+							"path": [
+								"property-search",
+								"1.0.0",
+								"mcp"
+							]
+						},
+						"description": "Demonstrates what happens when a resource server requires agent identity but receives a plain token (no `act` claim).\n\nThe 401/403 response triggers the client to initiate the authorization flow from Folder 1."
+					},
+					"response": [
+						{
+							"name": "401 Unauthorized — No Agent Identity",
+							"status": "Unauthorized",
+							"code": 401,
+							"header": [
+								{
+									"key": "WWW-Authenticate",
+									"value": "Bearer error=\"invalid_token\", error_description=\"Delegated access token with actor claim required\""
+								}
+							],
+							"body": "{\n  \"error\": \"invalid_token\",\n  \"error_description\": \"Delegated access token with actor claim required\"\n}",
+							"_postman_previewlanguage": "json"
+						}
+					]
+				}
+			]
+		},
+		{
+			"name": "3. Chained Delegation (RFC 8693)",
+			"description": "Multi-agent delegation chains using OAuth 2.0 Token Exchange (RFC 8693).\n\nScenario:\n```\nUser (erandi)\n  → Property Search Agent    (searches properties)\n    → Insurance Quote Agent   (gets quotes for found properties)\n      → Risk Assessment Agent (calculates risk scores)\n```\n\nEach hop adds a nested `act` claim, creating a full audit trail.",
+			"item": [
+				{
+					"name": "3a. Token Exchange: Property Agent → Insurance Agent",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"if (pm.response.code === 200) {",
+									"    var jsonData = pm.response.json();",
+									"    pm.collectionVariables.set('chained_token_insurance', jsonData.access_token);",
+									"    ",
+									"    // Decode and display the JWT payload",
+									"    var parts = jsonData.access_token.split('.');",
+									"    if (parts.length === 3) {",
+									"        var payload = JSON.parse(atob(parts[1]));",
+									"        console.log('=== Chained Token (Level 2) ===');",
+									"        console.log('sub (user):', payload.sub);",
+									"        console.log('act (current actor):', payload.act?.sub);",
+									"        console.log('act.act (prior actor):', payload.act?.act?.sub);",
+									"        console.log('Full act chain:', JSON.stringify(payload.act, null, 2));",
+									"        ",
+									"        pm.test('Token has nested act claims', function() {",
+									"            pm.expect(payload.act.sub).to.equal('insurance-quote-agent-v1');",
+									"            pm.expect(payload.act.act.sub).to.equal('property-search-agent-v1');",
+									"        });",
+									"    }",
+									"}"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/x-www-form-urlencoded"
+							}
+						],
+						"body": {
+							"mode": "urlencoded",
+							"urlencoded": [
+								{
+									"key": "grant_type",
+									"value": "urn:ietf:params:oauth:grant-type:token-exchange",
+									"description": "RFC 8693 token exchange grant type"
+								},
+								{
+									"key": "subject_token",
+									"value": "{{delegated_access_token}}",
+									"description": "The delegated token from Step 1 (contains sub=erandi, act.sub=property-search-agent-v1)"
+								},
+								{
+									"key": "subject_token_type",
+									"value": "urn:ietf:params:oauth:token-type:jwt",
+									"description": "The subject token is a JWT"
+								},
+								{
+									"key": "actor_token",
+									"value": "{{actor_token_insurance}}",
+									"description": "JWT identifying the insurance-quote-agent-v1 (contains sub: insurance-quote-agent-v1)"
+								},
+								{
+									"key": "actor_token_type",
+									"value": "urn:ietf:params:oauth:token-type:jwt",
+									"description": "The actor token is a JWT"
+								},
+								{
+									"key": "audience",
+									"value": "https://localhost:8243/insurance/1.0.0",
+									"description": "Target audience — the insurance API"
+								},
+								{
+									"key": "scope",
+									"value": "insurance:read insurance:quote",
+									"description": "Scopes needed by the insurance agent"
+								}
+							]
+						},
+						"url": {
+							"raw": "{{asgardeo_base_url}}/oauth2/token",
+							"host": [
+								"{{asgardeo_base_url}}"
+							],
+							"path": [
+								"oauth2",
+								"token"
+							]
+						},
+						"description": "The property search agent needs the insurance agent to get quotes for found properties.\n\n**subject_token**: The delegated token from Step 1b — carries `sub: erandi` and `act.sub: property-search-agent-v1`\n\n**actor_token**: JWT issued to the insurance agent — carries `sub: insurance-quote-agent-v1`\n\nThe authorization server:\n1. Validates both tokens\n2. Issues a new token with **nested `act` claims**\n3. The new token's `act` chain: `insurance-quote-agent-v1 → property-search-agent-v1`\n\nResulting JWT:\n```json\n{\n  \"sub\": \"erandi@erandisaorg\",\n  \"act\": {\n    \"sub\": \"insurance-quote-agent-v1\",\n    \"act\": {\n      \"sub\": \"property-search-agent-v1\"\n    }\n  }\n}\n```"
+					},
+					"response": [
+						{
+							"name": "200 OK — Chained Token (2 levels)",
+							"status": "OK",
+							"code": 200,
+							"header": [
+								{
+									"key": "Content-Type",
+									"value": "application/json;charset=UTF-8"
+								}
+							],
+							"body": "{\n  \"access_token\": \"eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJodHRwczovL2FwaS5hc2dhcmRlby5pby90L2VyYW5kaXNhb3JnL29hdXRoMi90b2tlbiIsImF1ZCI6Imh0dHBzOi8vbG9jYWxob3N0OjgyNDMvaW5zdXJhbmNlLzEuMC4wIiwic3ViIjoiZXJhbmRpQGVyYW5kaXNhb3JnIiwic2NvcGUiOiJpbnN1cmFuY2U6cmVhZCBpbnN1cmFuY2U6cXVvdGUiLCJleHAiOjE3Mzk2MDE4MDAsImlhdCI6MTczOTYwMDAwMCwiYWN0Ijp7InN1YiI6Imluc3VyYW5jZS1xdW90ZS1hZ2VudC12MSIsImFjdCI6eyJzdWIiOiJwcm9wZXJ0eS1zZWFyY2gtYWdlbnQtdjEifX19.signature\",\n  \"issued_token_type\": \"urn:ietf:params:oauth:token-type:jwt\",\n  \"token_type\": \"Bearer\",\n  \"expires_in\": 1800,\n  \"scope\": \"insurance:read insurance:quote\"\n}",
+							"_postman_previewlanguage": "json"
+						}
+					]
+				},
+				{
+					"name": "3b. Token Exchange: Insurance Agent → Risk Agent",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"if (pm.response.code === 200) {",
+									"    var jsonData = pm.response.json();",
+									"    pm.collectionVariables.set('chained_token_risk', jsonData.access_token);",
+									"    ",
+									"    var parts = jsonData.access_token.split('.');",
+									"    if (parts.length === 3) {",
+									"        var payload = JSON.parse(atob(parts[1]));",
+									"        console.log('=== Chained Token (Level 3) ===');",
+									"        console.log('sub (user):', payload.sub);",
+									"        console.log('Delegation chain:');",
+									"        console.log('  Current actor:', payload.act?.sub);",
+									"        console.log('  Prior actor 1:', payload.act?.act?.sub);",
+									"        console.log('  Prior actor 2:', payload.act?.act?.act?.sub);",
+									"        ",
+									"        pm.test('Token has 3-level nested act claims', function() {",
+									"            pm.expect(payload.act.sub).to.equal('risk-assessment-agent-v1');",
+									"            pm.expect(payload.act.act.sub).to.equal('insurance-quote-agent-v1');",
+									"            pm.expect(payload.act.act.act.sub).to.equal('property-search-agent-v1');",
+									"        });",
+									"    }",
+									"}"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/x-www-form-urlencoded"
+							}
+						],
+						"body": {
+							"mode": "urlencoded",
+							"urlencoded": [
+								{
+									"key": "grant_type",
+									"value": "urn:ietf:params:oauth:grant-type:token-exchange",
+									"description": "RFC 8693 token exchange"
+								},
+								{
+									"key": "subject_token",
+									"value": "{{chained_token_insurance}}",
+									"description": "Token from Step 3a (contains sub=erandi, act=insurance→property-search)"
+								},
+								{
+									"key": "subject_token_type",
+									"value": "urn:ietf:params:oauth:token-type:jwt",
+									"description": "JWT"
+								},
+								{
+									"key": "actor_token",
+									"value": "{{actor_token_risk}}",
+									"description": "JWT identifying risk-assessment-agent-v1"
+								},
+								{
+									"key": "actor_token_type",
+									"value": "urn:ietf:params:oauth:token-type:jwt",
+									"description": "JWT"
+								},
+								{
+									"key": "audience",
+									"value": "https://risk-service.example.com",
+									"description": "Target risk assessment service"
+								},
+								{
+									"key": "scope",
+									"value": "risk:assess",
+									"description": "Scopes for risk assessment"
+								}
+							]
+						},
+						"url": {
+							"raw": "{{asgardeo_base_url}}/oauth2/token",
+							"host": [
+								"{{asgardeo_base_url}}"
+							],
+							"path": [
+								"oauth2",
+								"token"
+							]
+						},
+						"description": "Third hop in the delegation chain. Insurance agent delegates to risk assessment agent.\n\n**subject_token**: The chained token from Step 3a — carries the full chain so far\n**actor_token**: JWT for `risk-assessment-agent-v1`\n\nResulting JWT has 3-level nesting:\n```json\n{\n  \"sub\": \"erandi@erandisaorg\",\n  \"act\": {\n    \"sub\": \"risk-assessment-agent-v1\",\n    \"act\": {\n      \"sub\": \"insurance-quote-agent-v1\",\n      \"act\": {\n        \"sub\": \"property-search-agent-v1\"\n      }\n    }\n  }\n}\n```\n\nFull audit trail: `erandi → property-search → insurance → risk-assessment`\n\nPer RFC 8693, only the outermost `act.sub` (risk-assessment-agent-v1) is used for access decisions. The inner nesting is for audit/traceability."
+					},
+					"response": [
+						{
+							"name": "200 OK — Chained Token (3 levels)",
+							"status": "OK",
+							"code": 200,
+							"header": [
+								{
+									"key": "Content-Type",
+									"value": "application/json;charset=UTF-8"
+								}
+							],
+							"body": "{\n  \"access_token\": \"eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJodHRwczovL2FwaS5hc2dhcmRlby5pby90L2VyYW5kaXNhb3JnL29hdXRoMi90b2tlbiIsImF1ZCI6Imh0dHBzOi8vcmlzay1zZXJ2aWNlLmV4YW1wbGUuY29tIiwic3ViIjoiZXJhbmRpQGVyYW5kaXNhb3JnIiwic2NvcGUiOiJyaXNrOmFzc2VzcyIsImV4cCI6MTczOTYwMTgwMCwiaWF0IjoxNzM5NjAwMDAwLCJhY3QiOnsic3ViIjoicmlzay1hc3Nlc3NtZW50LWFnZW50LXYxIiwiYWN0Ijp7InN1YiI6Imluc3VyYW5jZS1xdW90ZS1hZ2VudC12MSIsImFjdCI6eyJzdWIiOiJwcm9wZXJ0eS1zZWFyY2gtYWdlbnQtdjEifX19fQ.signature\",\n  \"issued_token_type\": \"urn:ietf:params:oauth:token-type:jwt\",\n  \"token_type\": \"Bearer\",\n  \"expires_in\": 1800,\n  \"scope\": \"risk:assess\"\n}",
+							"_postman_previewlanguage": "json"
+						}
+					]
+				},
+				{
+					"name": "3c. Call Insurance API with Chained Token",
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{chained_token_insurance}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"jsonrpc\": \"2.0\",\n  \"method\": \"tools/call\",\n  \"params\": {\n    \"name\": \"generateInsuranceQuote\",\n    \"arguments\": {\n      \"propertyId\": \"ca-lr-001\",\n      \"planId\": \"premium\",\n      \"propertyValue\": 850000,\n      \"squareFootage\": 1100\n    }\n  },\n  \"id\": 5\n}"
+						},
+						"url": {
+							"raw": "{{apim_gateway_url}}/insurance/1.0.0/mcp",
+							"host": [
+								"{{apim_gateway_url}}"
+							],
+							"path": [
+								"insurance",
+								"1.0.0",
+								"mcp"
+							]
+						},
+						"description": "Insurance quote agent calls the Insurance API using its chained token.\n\nAPIM validates:\n- `sub=erandi` → user exists and is authorized\n- `act.sub=insurance-quote-agent-v1` → current actor is allowed to call generateInsuranceQuote\n- `act.act.sub=property-search-agent-v1` → logged for audit: delegation originated from property search agent\n\nThe resource server only checks the outermost actor for access decisions, but logs the full chain."
+					},
+					"response": []
+				},
+				{
+					"name": "3d. Call Risk Service with 3-Level Token",
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{chained_token_risk}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"propertyId\": \"ca-lr-001\",\n  \"assessmentType\": \"flood_and_fire\",\n  \"propertyDetails\": {\n    \"state\": \"California\",\n    \"city\": \"Los Angeles\",\n    \"sqft\": 1100,\n    \"yearBuilt\": 2019\n  }\n}"
+						},
+						"url": {
+							"raw": "https://risk-service.example.com/api/v1/assess",
+							"protocol": "https",
+							"host": [
+								"risk-service",
+								"example",
+								"com"
+							],
+							"path": [
+								"api",
+								"v1",
+								"assess"
+							]
+						},
+						"description": "Risk assessment agent calls a hypothetical risk service using the 3-level chained token.\n\nToken claims show the full delegation chain:\n```\nsub: erandi@erandisaorg\nact:\n  sub: risk-assessment-agent-v1          ← current actor (access decisions)\n  act:\n    sub: insurance-quote-agent-v1        ← prior actor (audit only)\n    act:\n      sub: property-search-agent-v1      ← original actor (audit only)\n```\n\nThis is a hypothetical endpoint to illustrate the pattern — replace with a real service URL."
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "Reference: Decode JWT Token",
+			"description": "Utility requests for inspecting tokens",
+			"item": [
+				{
+					"name": "Decode any JWT (paste in Pre-request)",
+					"event": [
+						{
+							"listen": "prerequest",
+							"script": {
+								"exec": [
+									"// Paste any JWT here to decode it",
+									"var token = pm.collectionVariables.get('delegated_access_token');",
+									"",
+									"if (token) {",
+									"    var parts = token.split('.');",
+									"    if (parts.length === 3) {",
+									"        var header = JSON.parse(atob(parts[0]));",
+									"        var payload = JSON.parse(atob(parts[1]));",
+									"        ",
+									"        console.log('=== JWT Header ===');",
+									"        console.log(JSON.stringify(header, null, 2));",
+									"        console.log('');",
+									"        console.log('=== JWT Payload ===');",
+									"        console.log(JSON.stringify(payload, null, 2));",
+									"        console.log('');",
+									"        ",
+									"        // Extract delegation chain",
+									"        if (payload.act) {",
+									"            console.log('=== Delegation Chain ===');",
+									"            console.log('User (sub):', payload.sub);",
+									"            console.log('Client (azp):', payload.azp);",
+									"            ",
+									"            var actor = payload.act;",
+									"            var level = 1;",
+									"            while (actor) {",
+									"                var prefix = level === 1 ? 'Current actor' : 'Prior actor ' + (level - 1);",
+									"                console.log(prefix + ':', actor.sub);",
+									"                actor = actor.act;",
+									"                level++;",
+									"            }",
+									"        } else {",
+									"            console.log('No act claim found — not a delegated token');",
+									"        }",
+									"    }",
+									"} else {",
+									"    console.log('No token found. Set delegated_access_token or paste a token directly.');",
+									"}"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "https://httpbin.org/get",
+							"protocol": "https",
+							"host": [
+								"httpbin",
+								"org"
+							],
+							"path": [
+								"get"
+							]
+						},
+						"description": "Utility to decode and inspect any JWT token.\n\n**How to use:**\n1. Set the `delegated_access_token` collection variable (or edit the pre-request script to decode a different variable like `chained_token_insurance`)\n2. Send this request\n3. Check the **Postman Console** (View → Show Postman Console) for the decoded JWT\n\nThe script extracts:\n- JWT header (algorithm, type)\n- JWT payload (all claims)\n- Delegation chain (walks nested `act` claims)"
+					},
+					"response": []
+				}
+			]
+		}
+	]
+}
