@@ -115,6 +115,38 @@ Tool calls (e.g., *Search Properties*, *GetInsurancePlans*) are shown as interac
 
 ![Chat View](resources/Chat.png)
 
+## Setting Up APIs in WSO2 API Manager
+
+WSO2 API Manager 4.6 serves as the central gateway for both LLM calls (AI Gateway) and tool calls (MCP Gateway). Below is a quick overview of how each API type is created in the APIM Publisher Portal.
+
+### 1. AI API — OpenAI Proxy
+
+To route LLM calls through APIM, create an **AI API** that proxies the OpenAI REST API. In the Publisher Portal, select **Create AI API** and point it at `https://api.openai.com/v1`. Configure endpoint security with the OpenAI API key so the key stays in APIM and is never exposed to client applications. APIM can then apply AI-specific policies such as guardrails, token-based rate limiting, and usage analytics on top.
+
+Refer doc for more details - https://apim.docs.wso2.com/en/latest/api-design-manage/design/create-api/create-ai-api/create-an-ai-api/
+
+![OpenAI AI API in APIM Publisher](resources/OpenAI-API.png)
+
+### 2. MCP Server (Proxy) — Property Search
+
+For backend services that already speak the MCP protocol, create an **MCP Server from existing MCP**. Point the endpoint at the backend MCP URL (e.g. `http://localhost:3001/mcp`) and APIM proxies requests through, adding OAuth2 validation, rate limiting, and analytics. The backend MCP server's tools are automatically discovered and exposed via the gateway.
+
+Refer doc for more details - https://apim.docs.wso2.com/en/latest/ai-gateway/mcp-gateway/create-from-mcp-server/
+
+![Property Search MCP Proxy in APIM Publisher](resources/Property-search-proxy-MCP.png)
+
+### 3. MCP Server (from OpenAPI) — Insurance API
+
+For REST APIs that need to be consumed as MCP tools by LLM agents, create an **MCP Server from OpenAPI definition**. Import the service's OpenAPI spec (e.g. `insurance-api/api_openapi.yaml`) and set the backend endpoint (e.g. `http://localhost:3003`). APIM automatically converts each REST operation into an MCP tool — agents call it via the MCP protocol, and APIM translates those calls into the corresponding REST requests to the backend.
+
+Refer doc for more details - https://apim.docs.wso2.com/en/latest/ai-gateway/mcp-gateway/create-from-api/
+
+![Insurance MCP Server in APIM Publisher](resources/Insurance-MCP.png)
+
+### Insurance API — OpenAPI Definition
+
+The Insurance REST API (backed by the Ballerina service in `insurance-api/`) exposes two endpoints that APIM converts into MCP tools. See the full OpenAPI spec at [`resources/insurance-api-openapi.yaml`](resources/insurance-api-openapi.yaml).
+
 ## Quick Start
 
 ### Prerequisites

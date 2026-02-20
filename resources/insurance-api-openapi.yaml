@@ -1,0 +1,123 @@
+openapi: 3.0.1
+info:
+  title: Property Insurance API
+  description: >-
+    Property insurance quote API. Provides insurance plan lookup and
+    risk-based premium calculation for US properties.
+  version: 1.0.0
+servers:
+- url: "{server}:{port}/api"
+  variables:
+    server:
+      default: http://localhost
+    port:
+      default: "3003"
+paths:
+  /plans:
+    get:
+      summary: |-
+        List all available property insurance coverage plans.
+
+        Returns the Basic, Standard, and Premium plans with their
+        deductibles, coverage percentages, and included features.
+      operationId: getInsurancePlans
+      responses:
+        "200":
+          description: Ok
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Plan'
+  /quotes:
+    post:
+      summary: |-
+        Generate a property insurance quote.
+
+        Calculates an insurance premium based on the property's US state,
+        value, type (sale, long-rent, or short-rent), and the selected
+        insurance plan. The premium factors in geographic risk, property
+        type risk, and plan tier.
+      operationId: generateInsuranceQuote
+      requestBody:
+        description: "Quote request with state, property value, type, and plan ID"
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/QuoteRequest'
+        required: true
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Quote'
+        "400":
+          description: BadRequest
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorPayload'
+components:
+  schemas:
+    ErrorPayload:
+      required: [message, method, path, reason, status, timestamp]
+      type: object
+      properties:
+        timestamp: { type: string }
+        status: { type: integer, format: int64 }
+        reason: { type: string }
+        message: { type: string }
+        path: { type: string }
+        method: { type: string }
+    Plan:
+      required: [coveragePercentage, deductible, description, features, id, name]
+      type: object
+      properties:
+        id: { type: string, description: "Plan identifier (`basic`, `standard`, or `premium`)" }
+        name: { type: string, description: "Display name of the plan" }
+        description: { type: string, description: "Short description of what the plan covers" }
+        deductible: { type: number, format: double, description: "Deductible amount in USD" }
+        coveragePercentage: { type: integer, format: int64, description: "Percentage of property value covered (80, 90, or 100)" }
+        features: { type: array, items: { type: string }, description: "List of coverage features included in this plan" }
+      additionalProperties: false
+      description: Insurance coverage plan/tier definition.
+    Quote:
+      required: [annualPremium, coverageAmount, deductible, monthlyPremium, plan, propertyType, propertyValue, quoteId, riskFactors, state, validUntil]
+      type: object
+      properties:
+        quoteId: { type: string, description: "Unique quote identifier" }
+        state: { type: string, description: "US state for the property" }
+        propertyValue: { type: number, format: double, description: "Property value in USD" }
+        propertyType: { type: string, description: "Property type: sale, long-rent, or short-rent" }
+        plan: { $ref: '#/components/schemas/Plan' }
+        annualPremium: { type: number, format: double, description: "Calculated annual premium in USD" }
+        monthlyPremium: { type: number, format: double, description: "Calculated monthly premium in USD" }
+        coverageAmount: { type: number, format: double, description: "Total coverage amount in USD" }
+        deductible: { type: number, format: double, description: "Deductible amount in USD" }
+        riskFactors: { $ref: '#/components/schemas/RiskFactors' }
+        validUntil: { type: string, description: "Quote expiration date (ISO 8601)" }
+      additionalProperties: false
+      description: Generated insurance quote with premium breakdown.
+    QuoteRequest:
+      required: [planId, propertyType, propertyValue, state]
+      type: object
+      properties:
+        state: { type: string, description: "US state name (e.g. California, Texas, Florida)" }
+        propertyValue: { type: number, format: double, description: "Property value in USD" }
+        propertyType: { type: string, description: "Property type: sale, long-rent, or short-rent" }
+        planId: { type: string, description: "Insurance plan ID: basic, standard, or premium" }
+      additionalProperties: false
+      description: Request payload for generating a property insurance quote.
+    RiskFactors:
+      required: [baseRate, stateMultiplier, stateRisk, typeMultiplier]
+      type: object
+      properties:
+        stateRisk: { type: string, description: "Risk level for the state: low, moderate, high, or very-high" }
+        stateMultiplier: { type: number, format: double, description: "State-based geographic risk multiplier (0.85 to 1.45)" }
+        typeMultiplier: { type: number, format: double, description: "Property type risk multiplier" }
+        baseRate: { type: number, format: double, description: "Base insurance rate (0.35% of property value)" }
+      additionalProperties: false
+      description: Risk factor breakdown included in a quote response.
