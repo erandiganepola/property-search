@@ -115,37 +115,56 @@ Tool calls (e.g., *Search Properties*, *GetInsurancePlans*) are shown as interac
 
 ![Chat View](resources/Chat.png)
 
-## Setting Up APIs in WSO2 API Manager
+## Setting Up WSO2 API Manager
 
-WSO2 API Manager 4.6 serves as the central gateway for both LLM calls (AI Gateway) and tool calls (MCP Gateway). Below is a quick overview of how each API type is created in the APIM Publisher Portal.
+WSO2 API Manager 4.6 serves as the central gateway for both LLM calls (AI Gateway) and tool calls (MCP Gateway).
 
-### 1. AI API — OpenAI Proxy
+### Start APIM
 
-To route LLM calls through APIM, create an **AI API** that proxies the OpenAI REST API. In the Publisher Portal, select **Create AI API** and point it at `https://api.openai.com/v1`. Configure endpoint security with the OpenAI API key so the key stays in APIM and is never exposed to client applications. APIM can then apply AI-specific policies such as guardrails, token-based rate limiting, and usage analytics on top.
+```bash
+<APIM_HOME>/bin/api-manager.sh
+```
 
-Refer doc for more details - https://apim.docs.wso2.com/en/latest/api-design-manage/design/create-api/create-ai-api/create-an-ai-api/
+### Create APIs in the Publisher Portal
+
+Open the Publisher Portal at `https://localhost:9443/publisher` and create the following three APIs.
+
+#### 1. AI API — OpenAI Proxy
+
+To route LLM calls through APIM, create an **AI API** that proxies the OpenAI REST API. Select **Create AI API** and point it at `https://api.openai.com/v1`. Configure endpoint security with the OpenAI API key (`Authorization: Bearer`) so the key stays in APIM and is never exposed to client applications. Add AI-specific policies such as guardrails, token-based rate limiting, and usage analytics.
+
+Refer docs for more details:
+- [Create an AI API](https://apim.docs.wso2.com/en/latest/api-design-manage/design/create-api/create-ai-api/create-an-ai-api/)
+- [AI Guardrails](https://apim.docs.wso2.com/en/latest/ai-gateway/ai-guardrails/overview/)
 
 ![OpenAI AI API in APIM Publisher](resources/AI-API.png)
 
-### 2. MCP Server (Proxy) — Property Search
+#### 2. MCP Server (Proxy) — Property Search
 
-For backend services that already speak the MCP protocol, create an **MCP Server from existing MCP**. Point the endpoint at the backend MCP URL (e.g. `http://localhost:3001/mcp`) and APIM proxies requests through, adding OAuth2 validation, rate limiting, and analytics. The backend MCP server's tools are automatically discovered and exposed via the gateway.
+For backend services that already speak the MCP protocol, create an **MCP Server from existing MCP**. Point the endpoint at `http://localhost:3001/mcp` and APIM proxies requests through, adding OAuth2 validation, rate limiting, and analytics. The backend MCP server's tools are automatically discovered and exposed via the gateway.
 
-Refer doc for more details - https://apim.docs.wso2.com/en/latest/ai-gateway/mcp-gateway/create-from-mcp-server/
+Refer doc for more details - [Create from MCP Server](https://apim.docs.wso2.com/en/latest/ai-gateway/mcp-gateway/create-from-mcp-server/)
 
 ![Property Search MCP Proxy in APIM Publisher](resources/Property-search-mcp.png)
 
-### 3. MCP Server (from OpenAPI) — Insurance API
+#### 3. MCP Server (from OpenAPI) — Insurance API
 
-For REST APIs that need to be consumed as MCP tools by LLM agents, create an **MCP Server from OpenAPI definition**. Import the service's OpenAPI spec (e.g. `insurance-api/api_openapi.yaml`) and set the backend endpoint (e.g. `http://localhost:3003`). APIM automatically converts each REST operation into an MCP tool — agents call it via the MCP protocol, and APIM translates those calls into the corresponding REST requests to the backend.
+For REST APIs that need to be consumed as MCP tools by LLM agents, create an **MCP Server from OpenAPI definition**. Import the service's OpenAPI spec (`insurance-api/api_openapi.yaml`) and set the backend endpoint to `http://localhost:3003`. APIM automatically converts each REST operation into an MCP tool — agents call it via the MCP protocol, and APIM translates those calls into the corresponding REST requests to the backend.
 
-Refer doc for more details - https://apim.docs.wso2.com/en/latest/ai-gateway/mcp-gateway/create-from-api/
+The Insurance REST API (backed by the Ballerina service in `insurance-api/`) exposes two endpoints that APIM converts into MCP tools. See the full OpenAPI spec at [`resources/insurance-api-openapi.yaml`](resources/insurance-api-openapi.yaml).
+
+Refer doc for more details - [Create from API](https://apim.docs.wso2.com/en/latest/ai-gateway/mcp-gateway/create-from-api/)
 
 ![Insurance MCP Server in APIM Publisher](resources/Insurance-mcp.png)
 
-### Insurance API — OpenAPI Definition
+Deploy and publish all three APIs.
 
-The Insurance REST API (backed by the Ballerina service in `insurance-api/`) exposes two endpoints that APIM converts into MCP tools. See the full OpenAPI spec at [`resources/insurance-api-openapi.yaml`](resources/insurance-api-openapi.yaml).
+### Subscribe and Generate Keys in the Developer Portal
+
+1. Open the Developer Portal at `https://localhost:9443/devportal`
+2. Create an application and subscribe to all three APIs
+3. Generate production keys (client credentials grant)
+4. Add the consumer key and secret to `agent-service/.env`
 
 ## Quick Start
 
@@ -183,16 +202,7 @@ The agent service needs:
 
 ### 3. Set up WSO2 API Manager
 
-1. Start APIM: `<APIM_HOME>/bin/api-manager.sh`
-2. In the **Publisher Portal** (`https://localhost:9443/publisher`):
-   - **AI Gateway**: Create REST API proxying `https://api.openai.com/v1`, configure endpoint security with the OpenAI API key (`Authorization: Bearer`). Follow the official documentation and add policies as Guardrails for the AI API - https://apim.docs.wso2.com/en/latest/ai-gateway/ai-guardrails/overview/
-   - **MCP Gateway**: Create MCP Server from existing MCP → proxy `http://localhost:3001/mcp`
-   - **MCP Gateway**: Create MCP Server from OpenAPI → import `insurance-api/api_openapi.yaml`, set endpoint to `http://localhost:3003`
-   - Deploy and publish all three
-3. In the **Developer Portal** (`https://localhost:9443/devportal`):
-   - Create an application, subscribe to all three APIs
-   - Generate production keys (client credentials grant)
-   - Add the consumer key/secret to `agent-service/.env`
+Follow the [Setting Up WSO2 API Manager](#setting-up-wso2-api-manager) section above to start APIM, create the three APIs, and generate credentials.
 
 ### 4. Start all services
 
