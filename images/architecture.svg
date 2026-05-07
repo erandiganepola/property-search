@@ -1,0 +1,120 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 720" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif">
+  <rect width="1200" height="720" fill="#FAFAFA"/>
+
+  <defs>
+    <marker id="arr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto">
+      <path d="M0,0 L10,5 L0,10 Z" fill="#475569"/>
+    </marker>
+    <marker id="arr-rev" viewBox="0 0 10 10" refX="1" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M10,0 L0,5 L10,10 Z" fill="#475569"/>
+    </marker>
+  </defs>
+
+  <!-- Bijira SaaS Control Plane (top) -->
+  <rect x="290" y="25" width="620" height="115" rx="10" fill="#EFF6FF" stroke="#2563EB" stroke-width="1.5"/>
+  <text x="600" y="55" text-anchor="middle" font-size="18" font-weight="700" fill="#1E3A8A">Bijira SaaS Control Plane</text>
+  <text x="600" y="76" text-anchor="middle" font-size="12" fill="#1E40AF" font-family="Menlo, monospace">connect.bijira.dev</text>
+  <text x="600" y="100" text-anchor="middle" font-size="11" fill="#1E3A8A">Publisher · Dev Portal · STS</text>
+  <text x="600" y="120" text-anchor="middle" font-size="11" fill="#1E3A8A">LLM Provider · LLM Proxy · MCP Proxy · Apps · Subscriptions · Keys</text>
+
+  <!-- WSS arrow Bijira -> Gateway -->
+  <line x1="600" y1="140" x2="600" y2="225" stroke="#475569" stroke-width="2" stroke-dasharray="6 4" marker-end="url(#arr)"/>
+  <rect x="608" y="158" width="170" height="42" rx="4" fill="#FFFFFF" stroke="#CBD5E1" stroke-width="1"/>
+  <text x="693" y="176" text-anchor="middle" font-size="11" fill="#475569" font-weight="600">WSS push</text>
+  <text x="693" y="192" text-anchor="middle" font-size="10" fill="#475569">deployments · policies · keys</text>
+
+  <!-- Self-Hosted Gateway -->
+  <rect x="320" y="225" width="560" height="380" rx="10" fill="#FFF7ED" stroke="#EA580C" stroke-width="1.5"/>
+  <text x="600" y="252" text-anchor="middle" font-size="17" font-weight="700" fill="#7C2D12">Self-hosted AI Gateway 1.1.0</text>
+  <text x="600" y="270" text-anchor="middle" font-size="11" fill="#9A3412">Docker · runs locally or on a VM · hybrid mode</text>
+
+  <!-- gateway-controller -->
+  <rect x="345" y="290" width="510" height="55" rx="6" fill="#FFEDD5" stroke="#FB923C" stroke-width="1"/>
+  <text x="600" y="313" text-anchor="middle" font-size="13" font-weight="600" fill="#7C2D12">gateway-controller</text>
+  <text x="600" y="332" text-anchor="middle" font-size="11" fill="#9A3412" font-family="Menlo, monospace">:9094 admin / health · :9090 mgmt REST</text>
+
+  <!-- gateway-runtime -->
+  <rect x="345" y="360" width="510" height="55" rx="6" fill="#FFEDD5" stroke="#FB923C" stroke-width="1"/>
+  <text x="600" y="383" text-anchor="middle" font-size="13" font-weight="600" fill="#7C2D12">gateway-runtime (Envoy + policy engine)</text>
+  <text x="600" y="402" text-anchor="middle" font-size="11" fill="#9A3412" font-family="Menlo, monospace">:8443 HTTPS · :8080 HTTP · :9901 admin</text>
+
+  <!-- LLM Proxy box -->
+  <rect x="360" y="440" width="220" height="65" rx="6" fill="#FFFFFF" stroke="#EA580C" stroke-width="1"/>
+  <text x="470" y="462" text-anchor="middle" font-size="13" font-weight="600" fill="#7C2D12">LLM Proxy</text>
+  <text x="470" y="481" text-anchor="middle" font-size="11" fill="#9A3412" font-family="Menlo, monospace">/openai-proxy</text>
+  <text x="470" y="497" text-anchor="middle" font-size="10" fill="#9A3412">to OpenAI upstream</text>
+
+  <!-- MCP Proxies box -->
+  <rect x="620" y="440" width="220" height="65" rx="6" fill="#FFFFFF" stroke="#EA580C" stroke-width="1"/>
+  <text x="730" y="462" text-anchor="middle" font-size="13" font-weight="600" fill="#7C2D12">MCP Proxies</text>
+  <text x="730" y="481" text-anchor="middle" font-size="11" fill="#9A3412" font-family="Menlo, monospace">/property-search · /insurance</text>
+  <text x="730" y="497" text-anchor="middle" font-size="10" fill="#9A3412">native and REST-to-MCP</text>
+
+  <!-- Auth note inside gateway -->
+  <text x="600" y="540" text-anchor="middle" font-size="10" fill="#9A3412" font-style="italic">All requests run through the policy chain (mcp-auth, JWT, rate-limit, analytics)</text>
+  <text x="600" y="558" text-anchor="middle" font-size="10" fill="#9A3412" font-style="italic">JWT validation against Bijira STS · upstream credentials live at the LLM Provider level</text>
+  <text x="600" y="588" text-anchor="middle" font-size="10" fill="#7C2D12" font-weight="600">Stateless data plane: receives config from Bijira, never holds it locally</text>
+
+  <!-- Asgardeo (left top) -->
+  <rect x="40" y="180" width="200" height="80" rx="8" fill="#ECFDF5" stroke="#059669" stroke-width="1.5"/>
+  <text x="140" y="208" text-anchor="middle" font-size="14" font-weight="700" fill="#064E3B">Asgardeo</text>
+  <text x="140" y="228" text-anchor="middle" font-size="11" fill="#047857">OAuth2 + PKCE</text>
+  <text x="140" y="246" text-anchor="middle" font-size="11" fill="#047857">user authentication</text>
+
+  <!-- Web UI (left middle) -->
+  <rect x="40" y="320" width="200" height="80" rx="8" fill="#F5F3FF" stroke="#7C3AED" stroke-width="1.5"/>
+  <text x="140" y="346" text-anchor="middle" font-size="14" font-weight="700" fill="#3B0764">web/ React UI</text>
+  <text x="140" y="365" text-anchor="middle" font-size="11" fill="#5B21B6">Vite · Tailwind</text>
+  <text x="140" y="382" text-anchor="middle" font-size="11" fill="#5B21B6" font-family="Menlo, monospace">:5173</text>
+
+  <!-- Agent service (left bottom) -->
+  <rect x="40" y="440" width="200" height="90" rx="8" fill="#F0F9FF" stroke="#0284C7" stroke-width="1.5"/>
+  <text x="140" y="466" text-anchor="middle" font-size="14" font-weight="700" fill="#0C4A6E">agent-service/</text>
+  <text x="140" y="485" text-anchor="middle" font-size="11" fill="#0369A1">Express · OpenAI SDK</text>
+  <text x="140" y="502" text-anchor="middle" font-size="11" fill="#0369A1">MCP client</text>
+  <text x="140" y="519" text-anchor="middle" font-size="11" fill="#0369A1" font-family="Menlo, monospace">:3002</text>
+
+  <!-- Asgardeo <-> Web UI (login flow) -->
+  <line x1="140" y1="320" x2="140" y2="265" stroke="#475569" stroke-width="1.5" marker-end="url(#arr)" marker-start="url(#arr-rev)"/>
+  <text x="155" y="297" font-size="10" fill="#475569">login / consent</text>
+
+  <!-- Web UI <-> Agent service (SSE) -->
+  <line x1="140" y1="405" x2="140" y2="436" stroke="#475569" stroke-width="1.5" marker-end="url(#arr)" marker-start="url(#arr-rev)"/>
+  <text x="155" y="425" font-size="10" fill="#475569">SSE</text>
+
+  <!-- Agent service -> Gateway -->
+  <line x1="245" y1="485" x2="320" y2="450" stroke="#475569" stroke-width="1.5" marker-end="url(#arr)"/>
+  <text x="252" y="465" font-size="10" fill="#475569">HTTPS</text>
+  <text x="252" y="478" font-size="10" fill="#475569">LLM + MCP</text>
+
+  <!-- Right column: backends -->
+  <rect x="960" y="180" width="200" height="80" rx="8" fill="#F1F5F9" stroke="#475569" stroke-width="1.5"/>
+  <text x="1060" y="208" text-anchor="middle" font-size="14" font-weight="700" fill="#0F172A">OpenAI API</text>
+  <text x="1060" y="228" text-anchor="middle" font-size="11" fill="#334155" font-family="Menlo, monospace">api.openai.com</text>
+  <text x="1060" y="246" text-anchor="middle" font-size="11" fill="#334155">/v1/chat/completions</text>
+
+  <rect x="960" y="320" width="200" height="80" rx="8" fill="#F1F5F9" stroke="#475569" stroke-width="1.5"/>
+  <text x="1060" y="346" text-anchor="middle" font-size="14" font-weight="700" fill="#0F172A">property-search-mcp</text>
+  <text x="1060" y="365" text-anchor="middle" font-size="11" fill="#334155">Node.js · :3001</text>
+  <text x="1060" y="382" text-anchor="middle" font-size="11" fill="#334155">9 property tools</text>
+
+  <rect x="960" y="450" width="200" height="80" rx="8" fill="#F1F5F9" stroke="#475569" stroke-width="1.5"/>
+  <text x="1060" y="476" text-anchor="middle" font-size="14" font-weight="700" fill="#0F172A">insurance-api</text>
+  <text x="1060" y="495" text-anchor="middle" font-size="11" fill="#334155">Ballerina · :3003</text>
+  <text x="1060" y="512" text-anchor="middle" font-size="11" fill="#334155">REST · 2 endpoints</text>
+
+  <!-- Gateway -> backends (right side) -->
+  <line x1="880" y1="240" x2="955" y2="220" stroke="#475569" stroke-width="1.5" marker-end="url(#arr)"/>
+  <text x="888" y="234" font-size="10" fill="#475569">via LLM Proxy</text>
+
+  <line x1="880" y1="360" x2="955" y2="360" stroke="#475569" stroke-width="1.5" marker-end="url(#arr)"/>
+  <text x="888" y="354" font-size="10" fill="#475569">via MCP Proxy</text>
+
+  <line x1="880" y1="490" x2="955" y2="490" stroke="#475569" stroke-width="1.5" marker-end="url(#arr)"/>
+  <text x="888" y="484" font-size="10" fill="#475569">via MCP Proxy (REST)</text>
+
+  <!-- Footer caption -->
+  <text x="600" y="660" text-anchor="middle" font-size="11" fill="#475569" font-style="italic">All LLM and MCP traffic flows through the local gateway. Auth, rate limiting, and analytics applied uniformly. Upstream backends sit behind it.</text>
+  <text x="600" y="678" text-anchor="middle" font-size="10" fill="#94A3B8">Property Search and Insurance Agent · architecture overview</text>
+</svg>

@@ -4,6 +4,11 @@ An AI-powered agent for US property search and insurance. Users chat with an LLM
 
 ## Architecture
 
+![Architecture: Bijira SaaS control plane with self-hosted AI Gateway 1.1.0 running locally, fronting OpenAI and the two MCP backends](images/architecture.svg)
+
+<details>
+<summary>ASCII fallback</summary>
+
 ```
                  ┌────────────────────────────────────┐
                  │       Bijira SaaS Control Plane    │
@@ -44,6 +49,8 @@ An AI-powered agent for US property search and insurance. Users chat with an LLM
                               └───────────────┘  │  by gateway)  │
                                                  └───────────────┘
 ```
+
+</details>
 
 ### How It Technically Works
 
