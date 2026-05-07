@@ -1,13 +1,18 @@
 # Property Search & Insurance Agent
 
-An AI-powered agent for US property search and insurance. Users chat with an LLM-powered assistant in natural language to search and compare property listings, calculate mortgages, explore neighborhoods, get personalized recommendations, and generate insurance quotes. The agent has access to 11 MCP tools (9 property + 2 insurance) exposed through the WSO2 self-hosted **AI Gateway**, with LLM calls and MCP traffic both routed through that same gateway. Lifecycle management (LLM Provider, LLM Proxy, MCP Proxy, applications, subscriptions) lives in the **Bijira SaaS control plane**, which pushes deployments down to the local hybrid gateway. The frontend is secured with Asgardeo OAuth2 + PKCE authentication, and scope-based access control (`list-rent`, `list-sale`) determines which property types each user can access.
+An AI-powered agent for US property search and insurance. Users chat with an LLM-powered assistant in natural language to search and compare property listings, calculate mortgages, explore neighborhoods, get personalized recommendations, and generate insurance quotes. The agent has access to 11 MCP tools (9 property + 2 insurance) exposed through the WSO2 self-hosted **AI Gateway**, with LLM calls and MCP traffic both routed through that same gateway. Lifecycle management (LLM Provider, LLM Proxy, MCP Proxy, applications, subscriptions) lives in the **SaaS Control Plane** (Bijira), which pushes deployments down to the local hybrid gateway. The frontend is secured with Asgardeo OAuth2 + PKCE authentication, and scope-based access control (`list-rent`, `list-sale`) determines which property types each user can access.
 
 ## Architecture
 
+![Architecture: SaaS Control Plane (Bijira) with self-hosted AI Gateway 1.1.0 running locally, fronting OpenAI and the two MCP backends](images/architecture.svg)
+
+<details>
+<summary>ASCII fallback</summary>
+
 ```
                  ┌────────────────────────────────────┐
-                 │       Bijira SaaS Control Plane    │
-                 │       (connect.bijira.dev)         │
+                 │          SaaS Control Plane        │
+                 │       (Bijira · connect.bijira.dev)│
                  │                                    │
                  │  Publisher · Dev Portal · STS      │
                  │  LLM Provider, LLM Proxy, MCP      │
@@ -44,6 +49,8 @@ An AI-powered agent for US property search and insurance. Users chat with an LLM
                               └───────────────┘  │  by gateway)  │
                                                  └───────────────┘
 ```
+
+</details>
 
 ### How It Technically Works
 
@@ -336,7 +343,3 @@ property-search/
 ```
 
 See each subdirectory's README for detailed setup and configuration.
-
-## Migration note
-
-This project previously used **WSO2 API Manager 4.6** as the central gateway (AI Gateway + MCP Gateway). It has been migrated to the WSO2 API Platform **AI Gateway 1.1.0** running self-hosted in **hybrid mode**, with **Bijira** as the SaaS control plane. The agent's runtime contract (OAuth2 client credentials, OpenAI-compatible LLM endpoint, MCP-over-HTTP tool endpoints) is unchanged; only the deployment topology and the publisher/dev-portal UI for managing it have changed.
