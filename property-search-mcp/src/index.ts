@@ -5,10 +5,10 @@ import cors from "cors";
 import { randomUUID } from "node:crypto";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
-// import { requireBearerAuth } from "@modelcontextprotocol/sdk/server/auth/middleware/bearerAuth.js";
+import { requireBearerAuth } from "@modelcontextprotocol/sdk/server/auth/middleware/bearerAuth.js";
 import { z } from "zod";
 import { properties } from "./data/properties.js";
-// import { createAsgardeoTokenVerifier } from "./auth/tokenVerifier.js";
+import { createAsgardeoTokenVerifier } from "./auth/tokenVerifier.js";
 import { filterByScopes, getAllowedTypes } from "./auth/scopeFilter.js";
 import { getSessionUser } from "./auth/sessionContext.js";
 import { findNeighborhood } from "./data/neighborhoods.js";
@@ -28,10 +28,17 @@ const CORS_ORIGINS = (process.env.CORS_ORIGIN || "http://localhost:5173")
   .split(",")
   .map((o) => o.trim());
 
-// if (!ASGARDEO_BASE_URL) {
-//   console.error("ASGARDEO_BASE_URL environment variable is required");
-//   process.exit(1);
-// }
+// Auth toggle. When false (default), the MCP server skips Asgardeo JWT
+// verification and all scope-based result filtering — intended for deployments
+// where authentication is enforced upstream (e.g. WSO2 Choreo gateway).
+// When true, the server validates bearer tokens against Asgardeo's JWKS and
+// applies list-rent / list-sale scope filtering to results.
+const AUTH_ENABLED = process.env.AUTH_ENABLED === "true";
+
+if (AUTH_ENABLED && !ASGARDEO_BASE_URL) {
+  console.error("ASGARDEO_BASE_URL is required when AUTH_ENABLED=true");
+  process.exit(1);
+}
 
 // --- Helper: extract userId from authInfo ---
 function resolveSession(extra: { authInfo?: { clientId?: string; scopes?: string[] } }) {
@@ -443,13 +450,19 @@ app.use(cors({
 }));
 app.use(express.json());
 
-// const verifier = createAsgardeoTokenVerifier(ASGARDEO_BASE_URL);
-// const authMiddleware = requireBearerAuth({ verifier });
+// Bearer-token auth middleware. When AUTH_ENABLED is true, validates the
+// incoming JWT against Asgardeo's JWKS and populates req.auth/extra.authInfo
+// (clientId, scopes) used by the scope filter. When false, a no-op passthrough
+// is mounted so requests continue with extra.authInfo undefined and the scope
+// filter falls through to "allow all".
+const authMiddleware = AUTH_ENABLED
+  ? requireBearerAuth({ verifier: createAsgardeoTokenVerifier(ASGARDEO_BASE_URL) })
+  : (_req: express.Request, _res: express.Response, next: express.NextFunction) => next();
 
 // Per-session transport map
 const transports = new Map<string, StreamableHTTPServerTransport>();
 
-app.all("/mcp", async (req, res) => {
+app.all("/mcp", authMiddleware, async (req, res) => {
   const sessionId = req.headers["mcp-session-id"] as string | undefined;
   const method = req.body?.method ?? "(no method)";
   console.log(`[MCP] ${req.method} /mcp — method: ${method}, session: ${sessionId ?? "new"}`);
@@ -495,5 +508,5 @@ app.all("/mcp", async (req, res) => {
 app.listen(PORT, () => {
   console.log(`MCP Property Search server running on port ${PORT}`);
   console.log(`CORS origins: ${CORS_ORIGINS.join(", ")}`);
-  console.log(`Asgardeo base URL: ${ASGARDEO_BASE_URL}`);
+  console.log(`Auth enabled: ${AUTH_ENABLED}${AUTH_ENABLED ? ` (Asgardeo: ${ASGARDEO_BASE_URL})` : " (gateway-enforced)"}`);
 });

@@ -20,5 +20,6 @@ USER 10014
 
 EXPOSE 3001
 
-# PORT, ASGARDEO_BASE_URL, CORS_ORIGIN are read from the container env at runtime.
+# PORT, CORS_ORIGIN, AUTH_ENABLED, and ASGARDEO_BASE_URL (only required when
+# AUTH_ENABLED=true) are read from the container env at runtime.
 CMD ["node", "build/index.js"]
