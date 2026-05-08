@@ -47,7 +47,16 @@ else
   echo "[replace-env] $ENV_FILE not present; using process env only"
 fi
 
-DIR=/app/dist
+# Materialise the bundle into a writable location before substituting.
+# Some hosts (e.g. WSO2 Choreo) run the container with a read-only root
+# filesystem, which prevents sed -i from rewriting files under /app/dist.
+# /tmp is typically a writable tmpfs even when the rootfs is read-only.
+RUNTIME_DIST="${RUNTIME_DIST:-/tmp/dist}"
+rm -rf "$RUNTIME_DIST"
+mkdir -p "$RUNTIME_DIST"
+cp -R /app/dist/. "$RUNTIME_DIST/"
+echo "[replace-env] Materialised dist into $RUNTIME_DIST"
+
 PLACEHOLDERS="VITE_ASGARDEO_CLIENT_ID VITE_ASGARDEO_BASE_URL VITE_ASGARDEO_SIGN_IN_REDIRECT_URL VITE_ASGARDEO_SIGN_OUT_REDIRECT_URL VITE_AGENT_SERVICE_URL"
 
 for name in $PLACEHOLDERS; do
@@ -55,7 +64,7 @@ for name in $PLACEHOLDERS; do
   if [ -n "$value" ]; then
     echo "[replace-env] Substituting __${name}__"
     # `|` as sed delimiter avoids escaping `/` in URLs.
-    find "$DIR" -type f \( -name '*.js' -o -name '*.html' -o -name '*.css' \) \
+    find "$RUNTIME_DIST" -type f \( -name '*.js' -o -name '*.html' -o -name '*.css' \) \
       -exec sed -i "s|__${name}__|${value}|g" {} +
   else
     echo "[replace-env] $name unset, leaving placeholder"

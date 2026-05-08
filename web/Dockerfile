@@ -32,6 +32,9 @@ USER 10014
 
 EXPOSE 8080
 
-# The entrypoint substitutes runtime env values into the bundle, then execs CMD.
+# The entrypoint copies dist to a writable tmpfs path (/tmp/dist), substitutes
+# runtime env values there, then execs CMD. Serve is pointed at /tmp/dist so
+# the read-only /app/dist is never written to — required when the container
+# runs with a read-only root filesystem.
 ENTRYPOINT ["./docker-entrypoint.sh"]
-CMD ["serve", "-s", "dist", "-l", "8080"]
+CMD ["serve", "-s", "/tmp/dist", "-l", "8080"]
