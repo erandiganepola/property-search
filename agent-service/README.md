@@ -43,9 +43,9 @@ Then configure the APIM and LLM settings in `.env`.
 | `LLM_BASE_URL` | LLM gateway endpoint | `https://api.openai.com/v1` |
 | `LLM_API_KEY` | Direct upstream provider API key (e.g. real OpenAI key). When set, used as the OpenAI SDK `apiKey`; when unset, the APIM/Bijira client-credentials token is used as the bearer instead. | *(empty)* |
 | `MODEL` | LLM model ID | `gpt-4o-mini` |
-| `APIM_CONSUMER_KEY` | APIM/Bijira application consumer key | *(required)* |
-| `APIM_CONSUMER_SECRET` | APIM/Bijira application consumer secret | *(required)* |
-| `APIM_TOKEN_URL` | APIM/Bijira token endpoint | `https://localhost:9443/oauth2/token` |
+| `APIM_TOKEN_URL` | APIM/Bijira token endpoint. **Leave unset to skip the startup token fetch** — MCP calls are then made without an `Authorization` header. Required when MCPs sit behind a gateway that validates this token, or when `LLM_API_KEY` is unset. | *(empty)* |
+| `APIM_CONSUMER_KEY` | APIM/Bijira application consumer key. Required only when `APIM_TOKEN_URL` is set. | *(empty)* |
+| `APIM_CONSUMER_SECRET` | APIM/Bijira application consumer secret. Required only when `APIM_TOKEN_URL` is set. | *(empty)* |
 | `AUTH_ENABLED` | Enforce Asgardeo JWT verification on `POST /chat`. Set to `false` when an upstream gateway handles auth. | `false` |
 | `ASGARDEO_BASE_URL` | Asgardeo org base URL. Only required when `AUTH_ENABLED=true`. | *(empty)* |
 | `CORS_ORIGIN` | Allowed CORS origin | `http://localhost:5173` |
