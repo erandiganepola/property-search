@@ -9,6 +9,9 @@
   </head>
   <body>
     <div id="root"></div>
+    <!-- Loaded synchronously before the module bundle so window.configs is
+         populated by the time src/config.ts runs. -->
+    <script src="/config.js"></script>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>

@@ -3,12 +3,13 @@ import { createRoot } from 'react-dom/client'
 import { AuthProvider } from '@asgardeo/auth-react'
 import './index.css'
 import App from './App.tsx'
+import { config } from './config'
 
 const asgardeoConfig = {
-  signInRedirectURL: import.meta.env.VITE_ASGARDEO_SIGN_IN_REDIRECT_URL || "http://localhost:5173",
-  signOutRedirectURL: import.meta.env.VITE_ASGARDEO_SIGN_OUT_REDIRECT_URL || "http://localhost:5173",
-  clientID: import.meta.env.VITE_ASGARDEO_CLIENT_ID || "",
-  baseUrl: import.meta.env.VITE_ASGARDEO_BASE_URL || "",
+  signInRedirectURL: config.asgardeoSignInRedirectUrl,
+  signOutRedirectURL: config.asgardeoSignOutRedirectUrl,
+  clientID: config.asgardeoClientId,
+  baseUrl: config.asgardeoBaseUrl,
   scope: ["openid", "profile", "email", "property-test", "list-rent", "list-sale"],
 };
 
