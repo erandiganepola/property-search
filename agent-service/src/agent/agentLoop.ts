@@ -44,10 +44,13 @@ export async function runAgentLoop(
   mcpManager: McpManager,
   sendEvent: (event: SSEEvent) => void
 ): Promise<void> {
-  const apimToken = await getApimToken();
+  // Prefer LLM_API_KEY when set (e.g. a real OpenAI key, used to talk
+  // directly to the upstream provider). Fall back to the APIM/Bijira
+  // client-credentials token used for the gateway-proxied path.
+  const apiKey = process.env.LLM_API_KEY || (await getApimToken());
   const openai = new OpenAI({
     baseURL: process.env.LLM_BASE_URL || "https://api.openai.com/v1",
-    apiKey: apimToken,
+    apiKey,
   });
 
   const tools = mcpManager.getTools();
