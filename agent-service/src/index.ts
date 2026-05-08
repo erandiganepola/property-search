@@ -52,11 +52,16 @@ async function verifyToken(token: string): Promise<void> {
   await jwtVerify(token, JWKS, { issuer: expectedIssuer });
 }
 
-// --- Shared MCP Manager (APIM-authenticated) ---
+// --- Shared MCP Manager ---
 let mcpManager: McpManager | null = null;
 
 async function initMcpManager(): Promise<McpManager> {
-  const token = await getApimToken();
+  // Fetch the APIM/Bijira client-credentials token only when APIM_TOKEN_URL
+  // is configured. When unset (e.g. MCPs sit behind a gateway with auth
+  // disabled), connect without an Authorization header.
+  const token = process.env.APIM_TOKEN_URL
+    ? await getApimToken()
+    : undefined;
   const manager = new McpManager();
   await manager.connect(mcpServers, token);
   return manager;
