@@ -22,12 +22,29 @@ load_env() {
 }
 
 ENV_FILE="${ENV_FILE:-/app/.env}"
-if [ -d "$ENV_FILE" ]; then
-  for f in "$ENV_FILE"/*; do
-    load_env "$f" && break
-  done
-else
+
+if [ -f "$ENV_FILE" ]; then
+  echo "[replace-env] $ENV_FILE is a regular file"
   load_env "$ENV_FILE" || true
+elif [ -d "$ENV_FILE" ]; then
+  echo "[replace-env] $ENV_FILE is a directory; contents:"
+  ls -la "$ENV_FILE" 2>/dev/null | sed 's/^/[replace-env]   /' || true
+  loaded=0
+  # Iterate including dotfiles (sh has no dotglob); guard against the literal
+  # pattern when a glob doesn't match.
+  for f in "$ENV_FILE"/* "$ENV_FILE"/.[!.]*; do
+    [ -e "$f" ] || continue
+    case "$f" in *"/."|*"/..") continue ;; esac
+    if load_env "$f"; then
+      loaded=1
+      break
+    fi
+  done
+  [ "$loaded" -eq 0 ] && echo "[replace-env] no sourceable file found inside $ENV_FILE"
+elif [ -e "$ENV_FILE" ]; then
+  echo "[replace-env] $ENV_FILE exists but is neither file nor directory"
+else
+  echo "[replace-env] $ENV_FILE not present; using process env only"
 fi
 
 DIR=/app/dist
