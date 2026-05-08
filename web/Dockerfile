@@ -17,27 +17,21 @@ ENV VITE_ASGARDEO_CLIENT_ID=__VITE_ASGARDEO_CLIENT_ID__ \
     VITE_AGENT_SERVICE_URL=__VITE_AGENT_SERVICE_URL__
 RUN npm run build
 
-# ---- runtime stage ----
-FROM nginx:alpine
-COPY --from=build /app/dist /usr/share/nginx/html
-COPY nginx.conf /etc/nginx/nginx.conf
-COPY docker-entrypoint-replace-env.sh /docker-entrypoint.d/40-replace-env.sh
+# ---- runtime stage: serve dist/ via `serve` ----
+FROM node:20-alpine
+WORKDIR /app
+RUN npm install -g serve@14
+COPY --from=build /app/dist ./dist
+COPY docker-entrypoint.sh ./
 
 # Choreo build (Checkov CKV_DOCKER_3) requires a non-root user with UID >= 10000.
-# nginx:alpine's stock entrypoint runs every executable in /docker-entrypoint.d/
-# before starting nginx, so the placeholder substitution happens once at boot.
-# We replaced the main nginx.conf, so the stock listen-on-ipv6 helper that
-# rewrites /etc/nginx/conf.d/default.conf is irrelevant — drop it.
-RUN chmod +x /docker-entrypoint.d/40-replace-env.sh \
-    && rm -f /docker-entrypoint.d/10-listen-on-ipv6-by-default.sh \
+RUN chmod +x docker-entrypoint.sh \
     && adduser -D -u 10014 choreouser \
-    && chown -R 10014:10014 \
-        /usr/share/nginx \
-        /docker-entrypoint.d \
-        /var/cache/nginx \
-        /var/log/nginx
+    && chown -R 10014:10014 /app
 USER 10014
 
 EXPOSE 8080
 
-CMD ["nginx", "-g", "daemon off;"]
+# The entrypoint substitutes runtime env values into the bundle, then execs CMD.
+ENTRYPOINT ["./docker-entrypoint.sh"]
+CMD ["serve", "-s", "dist", "-l", "8080"]

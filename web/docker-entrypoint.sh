@@ -1,10 +1,9 @@
 #!/bin/sh
 # Replace build-time placeholders in the bundled assets with values from the
-# container env. nginx:alpine's stock entrypoint runs everything in
-# /docker-entrypoint.d/ before launching nginx, so this fires once per boot.
+# container env, then exec the CMD (serve).
 set -e
 
-DIR=/usr/share/nginx/html
+DIR=/app/dist
 PLACEHOLDERS="VITE_ASGARDEO_CLIENT_ID VITE_ASGARDEO_BASE_URL VITE_ASGARDEO_SIGN_IN_REDIRECT_URL VITE_ASGARDEO_SIGN_OUT_REDIRECT_URL VITE_AGENT_SERVICE_URL"
 
 for name in $PLACEHOLDERS; do
@@ -18,3 +17,5 @@ for name in $PLACEHOLDERS; do
     echo "[replace-env] $name unset, leaving placeholder"
   fi
 done
+
+exec "$@"
