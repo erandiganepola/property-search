@@ -2,7 +2,6 @@
 
 import express from "express";
 import cors from "cors";
-import { randomUUID } from "node:crypto";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
 import { requireBearerAuth } from "@modelcontextprotocol/sdk/server/auth/middleware/bearerAuth.js";
@@ -459,50 +458,48 @@ const authMiddleware = AUTH_ENABLED
   ? requireBearerAuth({ verifier: createAsgardeoTokenVerifier(ASGARDEO_BASE_URL) })
   : (_req: express.Request, _res: express.Response, next: express.NextFunction) => next();
 
-// Per-session transport map
-const transports = new Map<string, StreamableHTTPServerTransport>();
-
-app.all("/mcp", authMiddleware, async (req, res) => {
-  const sessionId = req.headers["mcp-session-id"] as string | undefined;
+// Stateless MCP transport. Each POST creates a fresh transport + McpServer,
+// handles one JSON-RPC request, then tears down. No in-memory session state,
+// so any number of replicas can serve any request without sticky sessions.
+// Trade-off: server-initiated sampling, prompts, dynamic resource updates and
+// the GET-based SSE event stream are not available in stateless mode — none
+// of which this server's 9 tools rely on.
+app.post("/mcp", authMiddleware, async (req, res) => {
   const method = req.body?.method ?? "(no method)";
-  console.log(`[MCP] ${req.method} /mcp — method: ${method}, session: ${sessionId ?? "new"}`);
+  console.log(`[MCP] POST /mcp — method: ${method}`);
 
-  if (req.method === "POST" && !sessionId) {
-    // New session — create transport + connect server
+  try {
     const transport = new StreamableHTTPServerTransport({
-      sessionIdGenerator: () => randomUUID(),
-      onsessioninitialized: (id) => {
-        console.log(`[MCP] Session created: ${id}`);
-        transports.set(id, transport);
-      },
+      sessionIdGenerator: undefined,
+    });
+    const server = createServer();
+
+    res.on("close", () => {
+      transport.close();
+      server.close();
     });
 
-    transport.onclose = () => {
-      if (transport.sessionId) {
-        console.log(`[MCP] Session closed: ${transport.sessionId}`);
-        transports.delete(transport.sessionId);
-      }
-    };
-
-    const server = createServer();
     await server.connect(transport);
     await transport.handleRequest(req, res, req.body);
-    return;
-  }
-
-  // Existing session
-  if (sessionId) {
-    const transport = transports.get(sessionId);
-    if (!transport) {
-      console.log(`[MCP] Session not found: ${sessionId}`);
-      res.status(404).json({ error: "Session not found" });
-      return;
+  } catch (err) {
+    console.error("[MCP] handler error:", err);
+    if (!res.headersSent) {
+      res.status(500).json({
+        jsonrpc: "2.0",
+        error: { code: -32603, message: "Internal server error" },
+        id: null,
+      });
     }
-    await transport.handleRequest(req, res, req.body);
-    return;
   }
+});
 
-  res.status(400).json({ error: "Missing mcp-session-id header" });
+// GET-based SSE notification stream is not supported in stateless mode.
+app.get("/mcp", (_req, res) => {
+  res.status(405).json({
+    jsonrpc: "2.0",
+    error: { code: -32000, message: "Method not allowed in stateless mode." },
+    id: null,
+  });
 });
 
 app.listen(PORT, () => {
