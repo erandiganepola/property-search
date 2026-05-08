@@ -1,5 +1,6 @@
-const AGENT_SERVICE_URL =
-  import.meta.env.VITE_AGENT_SERVICE_URL || "http://localhost:3002";
+import { config } from "../config";
+
+const AGENT_SERVICE_URL = config.agentServiceUrl;
 
 export interface SSEEvent {
   type: "text" | "tool_call" | "tool_result" | "properties" | "done" | "error";
