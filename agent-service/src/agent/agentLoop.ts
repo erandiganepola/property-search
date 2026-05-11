@@ -51,6 +51,9 @@ export async function runAgentLoop(
   const openai = new OpenAI({
     baseURL: process.env.LLM_BASE_URL || "https://api.openai.com/v1",
     apiKey,
+    // WSO2 AI Gateway LLM Proxy uses X-API-Key for client auth, not the
+    // Authorization: Bearer header the OpenAI SDK sends by default.
+    defaultHeaders: { "X-API-Key": apiKey },
   });
 
   const tools = mcpManager.getTools();
