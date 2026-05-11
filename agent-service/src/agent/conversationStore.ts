@@ -1,10 +1,8 @@
-import type { ChatCompletionMessageParam } from "openai/resources/chat/completions.js";
+import type { MessageParam } from "@anthropic-ai/sdk/resources/messages.js";
 
-const conversations = new Map<string, ChatCompletionMessageParam[]>();
+const conversations = new Map<string, MessageParam[]>();
 
-export function getMessages(
-  conversationId: string
-): ChatCompletionMessageParam[] {
+export function getMessages(conversationId: string): MessageParam[] {
   let messages = conversations.get(conversationId);
   if (!messages) {
     messages = [];
@@ -15,7 +13,7 @@ export function getMessages(
 
 export function appendMessage(
   conversationId: string,
-  message: ChatCompletionMessageParam
+  message: MessageParam
 ): void {
   const messages = getMessages(conversationId);
   messages.push(message);

@@ -1,6 +1,6 @@
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/streamableHttp.js";
-import type { ChatCompletionTool } from "openai/resources/chat/completions.js";
+import type { Tool } from "@anthropic-ai/sdk/resources/messages.js";
 
 export interface McpServerConfig {
   name: string;
@@ -19,7 +19,7 @@ interface ConnectedServer {
 export class McpManager {
   private servers: ConnectedServer[] = [];
   private toolMap = new Map<string, ConnectedServer>();
-  private tools: ChatCompletionTool[] = [];
+  private tools: Tool[] = [];
 
   async connect(
     configs: McpServerConfig[],
@@ -50,12 +50,9 @@ export class McpManager {
         const namespacedName = `${config.name}__${tool.name}`;
         this.toolMap.set(namespacedName, connected);
         this.tools.push({
-          type: "function",
-          function: {
-            name: namespacedName,
-            description: tool.description || "",
-            parameters: tool.inputSchema as Record<string, unknown>,
-          },
+          name: namespacedName,
+          description: tool.description || "",
+          input_schema: tool.inputSchema as Tool["input_schema"],
         });
       }
 
@@ -65,7 +62,7 @@ export class McpManager {
     }
   }
 
-  getTools(): ChatCompletionTool[] {
+  getTools(): Tool[] {
     return this.tools;
   }
 

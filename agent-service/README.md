@@ -9,7 +9,7 @@ Both **LLM calls** and **MCP tool calls** are routed through WSO2 APIM using cli
 - **Runtime:** Node.js 18+
 - **Language:** TypeScript
 - **Framework:** Express 5
-- **AI:** `openai` SDK via WSO2 APIM AI Gateway (proxied OpenAI)
+- **AI:** `@anthropic-ai/sdk` via WSO2 AI Gateway (Anthropic LLM Provider)
 - **MCP Client:** `@modelcontextprotocol/sdk` (StreamableHTTP transport via APIM MCP Gateway)
 - **Auth:** `jose` (JWT/JWKS verification against Asgardeo for frontend), APIM client credentials for backend
 
@@ -40,9 +40,9 @@ Then configure the APIM and LLM settings in `.env`.
 | Variable | Description | Default |
 |---|---|---|
 | `PORT` | Server port | `3002` |
-| `LLM_BASE_URL` | LLM gateway endpoint | `https://api.openai.com/v1` |
-| `LLM_API_KEY` | Direct upstream provider API key (e.g. real OpenAI key). When set, used as the OpenAI SDK `apiKey`; when unset, the APIM/Bijira client-credentials token is used as the bearer instead. | *(empty)* |
-| `MODEL` | LLM model ID | `gpt-4o-mini` |
+| `LLM_BASE_URL` | LLM gateway endpoint. The Anthropic SDK appends `/v1/messages` to this. | `https://api.anthropic.com` |
+| `LLM_API_KEY` | Direct upstream provider API key (e.g. real Anthropic key). When set, used as the Anthropic SDK `apiKey` (sent as `x-api-key`); when unset, the APIM/Bijira client-credentials token is used instead. | *(empty)* |
+| `MODEL` | LLM model ID (Anthropic) | `claude-opus-4-7` |
 | `APIM_TOKEN_URL` | APIM/Bijira token endpoint. **Leave unset to skip the startup token fetch** — MCP calls are then made without an `Authorization` header. Required when MCPs sit behind a gateway that validates this token, or when `LLM_API_KEY` is unset. | *(empty)* |
 | `APIM_CONSUMER_KEY` | APIM/Bijira application consumer key. Required only when `APIM_TOKEN_URL` is set. | *(empty)* |
 | `APIM_CONSUMER_SECRET` | APIM/Bijira application consumer secret. Required only when `APIM_TOKEN_URL` is set. | *(empty)* |
@@ -115,15 +115,15 @@ Frontend ──Asgardeo JWT──▶ Agent Service ──APIM Token──▶ WSO
                                               ┌───────────────┼───────────────┐
                                               ▼               ▼               ▼
                                         AI Gateway      MCP Gateway      MCP Gateway
-                                        (OpenAI)     (Property Search)  (Insurance)
+                                       (Anthropic)   (Property Search)  (Insurance)
                                               │               │               │
                                               ▼               ▼               ▼
-                                         OpenAI API     property-search-mcp/    insurance-api/
+                                       Anthropic API   property-search-mcp/    insurance-api/
 ```
 
 1. Frontend sends a chat message with the user's Asgardeo JWT
 2. Agent service validates the JWT, obtains an APIM token via client credentials
-3. LLM calls go through APIM AI Gateway → OpenAI (APIM handles the OpenAI API key)
+3. LLM calls go through APIM AI Gateway → Anthropic (APIM handles the upstream API key)
 4. The LLM decides which tools to call; tool calls go through APIM MCP Gateway
 5. Agent service executes MCP tool calls and feeds results back to the LLM
 6. Text is streamed back to the frontend via SSE as the LLM generates it
@@ -142,7 +142,7 @@ agent-service/
 │   │   ├── mcpManager.ts          # Multi-server MCP client manager
 │   │   └── apimToken.ts           # APIM client credentials token provider
 │   └── agent/
-│       ├── agentLoop.ts           # OpenAI SDK streaming agentic loop (via APIM)
+│       ├── agentLoop.ts           # Anthropic SDK streaming agentic loop (via AI Gateway)
 │       └── conversationStore.ts   # In-memory conversation history
 └── build/                          # Compiled JavaScript output
 ```
