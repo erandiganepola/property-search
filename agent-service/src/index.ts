@@ -160,7 +160,7 @@ async function start() {
     console.log(`Agent service running on port ${PORT}`);
     console.log(`Model: ${process.env.MODEL || "anthropic/claude-sonnet-4.5"}`);
     console.log(
-      `LLM base URL: ${process.env.LLM_BASE_URL || "https://api.openai.com/v1"} (key: ${process.env.LLM_API_KEY ? "LLM_API_KEY" : "APIM token"})`
+      `LLM base URL: ${process.env.LLM_BASE_URL || "https://api.anthropic.com"} (key: ${process.env.LLM_API_KEY ? "LLM_API_KEY" : "APIM token"})`
     );
     console.log(`CORS origin: ${CORS_ORIGIN}`);
     console.log(

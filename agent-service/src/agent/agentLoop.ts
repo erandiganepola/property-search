@@ -1,5 +1,10 @@
-import OpenAI from "openai";
-import type { ChatCompletionMessageParam } from "openai/resources/chat/completions.js";
+import Anthropic from "@anthropic-ai/sdk";
+import type {
+  MessageParam,
+  ToolUseBlock,
+  ContentBlockParam,
+  ToolResultBlockParam,
+} from "@anthropic-ai/sdk/resources/messages.js";
 import type { McpManager } from "../mcp/mcpManager.js";
 import { getApimToken } from "../mcp/apimToken.js";
 import { getMessages, appendMessage } from "./conversationStore.js";
@@ -17,7 +22,7 @@ Formatting rules:
 - Keep paragraphs short (2-3 sentences) for easy scanning.
 - For mortgage or payment breakdowns, use a table.`;
 
-const MODEL = process.env.MODEL || "anthropic/claude-sonnet-4.5";
+const MODEL = process.env.MODEL || "claude-opus-4-7";
 const MAX_TOKENS = 4096;
 const MAX_TOOL_ROUNDS = 10;
 
@@ -28,15 +33,10 @@ export interface SSEEvent {
   conversationId?: string;
 }
 
-interface AccumulatedToolCall {
-  id: string;
-  type: "function";
-  function: { name: string; arguments: string };
-}
-
 /**
  * Run the agentic chat loop with streaming.
- * Calls the LLM via OpenRouter, executes MCP tools, and streams SSE events back.
+ * Calls the LLM via the configured Anthropic-compatible endpoint, executes
+ * MCP tools, and streams SSE events back.
  */
 export async function runAgentLoop(
   userMessage: string,
@@ -44,16 +44,13 @@ export async function runAgentLoop(
   mcpManager: McpManager,
   sendEvent: (event: SSEEvent) => void
 ): Promise<void> {
-  // Prefer LLM_API_KEY when set (e.g. a real OpenAI key, used to talk
+  // Prefer LLM_API_KEY when set (e.g. a real Anthropic key, used to talk
   // directly to the upstream provider). Fall back to the APIM/Bijira
   // client-credentials token used for the gateway-proxied path.
   const apiKey = process.env.LLM_API_KEY || (await getApimToken());
-  const openai = new OpenAI({
-    baseURL: process.env.LLM_BASE_URL || "https://api.openai.com/v1",
+  const anthropic = new Anthropic({
+    baseURL: process.env.LLM_BASE_URL || "https://api.anthropic.com",
     apiKey,
-    // WSO2 AI Gateway LLM Proxy uses X-API-Key for client auth, not the
-    // Authorization: Bearer header the OpenAI SDK sends by default.
-    defaultHeaders: { "X-API-Key": apiKey },
   });
 
   const tools = mcpManager.getTools();
@@ -61,9 +58,8 @@ export async function runAgentLoop(
   // Add user message to history
   appendMessage(conversationId, { role: "user", content: userMessage });
 
-  const messages = getMessages(conversationId);
   console.log(
-    `[Agent] Starting — conversationId: ${conversationId}, historyLength: ${messages.length}`
+    `[Agent] Starting — conversationId: ${conversationId}, historyLength: ${getMessages(conversationId).length}`
   );
 
   let toolRounds = 0;
@@ -71,97 +67,68 @@ export async function runAgentLoop(
   while (toolRounds < MAX_TOOL_ROUNDS) {
     console.log(`[Agent] Streaming response — round: ${toolRounds + 1}`);
 
+    const messages = getMessages(conversationId);
+
     // Stream a response from the LLM
-    const stream = await openai.chat.completions.create({
+    const stream = anthropic.messages.stream({
       model: MODEL,
       max_tokens: MAX_TOKENS,
-      stream: true,
-      messages: [
-        { role: "system", content: SYSTEM_PROMPT },
-        ...messages,
-      ],
+      system: SYSTEM_PROMPT,
+      messages,
       tools: tools.length > 0 ? tools : undefined,
     });
 
-    // Accumulate the complete response from stream chunks
-    let contentAccum = "";
-    const toolCallsAccum: AccumulatedToolCall[] = [];
+    // Stream text deltas to the client as they arrive
+    stream.on("text", (text) => {
+      sendEvent({ type: "text", content: text });
+    });
 
-    for await (const chunk of stream) {
-      const delta = chunk.choices[0]?.delta;
-      if (!delta) continue;
+    // Wait for the full message and inspect its content blocks
+    const finalMessage = await stream.finalMessage();
 
-      // Text content
-      if (delta.content) {
-        contentAccum += delta.content;
-        sendEvent({ type: "text", content: delta.content });
-      }
+    // Persist the assistant turn (text + any tool_use blocks) verbatim so
+    // the next round can include it in history.
+    appendMessage(conversationId, {
+      role: "assistant",
+      content: finalMessage.content,
+    });
 
-      // Tool call deltas — id, name, and arguments arrive incrementally
-      if (delta.tool_calls) {
-        for (const tc of delta.tool_calls) {
-          const idx = tc.index ?? toolCallsAccum.length;
-          if (!toolCallsAccum[idx]) {
-            toolCallsAccum[idx] = {
-              id: "",
-              type: "function",
-              function: { name: "", arguments: "" },
-            };
-          }
-          const accum = toolCallsAccum[idx];
-          if (tc.id) accum.id = tc.id;
-          if (tc.function?.name) accum.function.name += tc.function.name;
-          if (tc.function?.arguments)
-            accum.function.arguments += tc.function.arguments;
-        }
-      }
-    }
+    const toolUses = finalMessage.content.filter(
+      (b): b is ToolUseBlock => b.type === "tool_use"
+    );
 
-    // Filter out any empty slots
-    const toolCalls = toolCallsAccum.filter((tc) => tc.id);
-
-    // If no tool calls, we're done — append the final message and break
-    if (toolCalls.length === 0) {
-      appendMessage(conversationId, {
-        role: "assistant",
-        content: contentAccum,
-      });
+    // No tool calls -> the assistant is done.
+    if (toolUses.length === 0) {
       break;
     }
 
-    // Append assistant message with tool calls to history
-    appendMessage(conversationId, {
-      role: "assistant",
-      content: contentAccum || null,
-      tool_calls: toolCalls,
-    });
-
-    // Execute each tool call
-    for (const toolCall of toolCalls) {
-      const toolName = toolCall.function.name;
+    // Execute each tool call, collect results to send back as a single
+    // user message with tool_result content blocks.
+    const toolResults: ToolResultBlockParam[] = [];
+    for (const toolUse of toolUses) {
+      const toolName = toolUse.name;
       console.log(`[Agent] Tool call — ${toolName}`);
       sendEvent({ type: "tool_call", name: toolName });
 
       const startTime = performance.now();
       try {
-        const args = JSON.parse(toolCall.function.arguments);
-        const resultText = await mcpManager.callTool(toolName, args);
+        const resultText = await mcpManager.callTool(
+          toolName,
+          toolUse.input as Record<string, unknown>
+        );
 
         const duration = Math.round(performance.now() - startTime);
         console.log(
           `[Agent] Tool result — ${toolName}, ${duration}ms, success: true`
         );
 
-        // Append tool result to history
-        appendMessage(conversationId, {
-          role: "tool",
-          tool_call_id: toolCall.id,
+        toolResults.push({
+          type: "tool_result",
+          tool_use_id: toolUse.id,
           content: resultText,
         });
 
         sendEvent({ type: "tool_result", name: toolName });
-
-        // Emit property data if the result contains properties
         emitPropertyData(resultText, sendEvent);
       } catch (err) {
         const duration = Math.round(performance.now() - startTime);
@@ -171,15 +138,23 @@ export async function runAgentLoop(
           `[Agent] Tool result — ${toolName}, ${duration}ms, success: false`
         );
 
-        appendMessage(conversationId, {
-          role: "tool",
-          tool_call_id: toolCall.id,
+        toolResults.push({
+          type: "tool_result",
+          tool_use_id: toolUse.id,
           content: `Error: ${errorMsg}`,
+          is_error: true,
         });
 
         sendEvent({ type: "tool_result", name: toolName });
       }
     }
+
+    // Append the tool results as a single user message so the next round
+    // sees them in history.
+    appendMessage(conversationId, {
+      role: "user",
+      content: toolResults as ContentBlockParam[],
+    });
 
     toolRounds++;
   }
