@@ -107,44 +107,76 @@ export async function runAgentLoop(
     const toolResults: ToolResultBlockParam[] = [];
     for (const toolUse of toolUses) {
       const toolName = toolUse.name;
+      const toolArgs = toolUse.input as Record<string, unknown>;
       console.log(`[Agent] Tool call — ${toolName}`);
       sendEvent({ type: "tool_call", name: toolName });
 
       const startTime = performance.now();
+      let resultText: string | undefined;
+      let errorMsg = "";
+      let durationMs = 0;
+
       try {
-        const resultText = await mcpManager.callTool(
-          toolName,
-          toolUse.input as Record<string, unknown>
-        );
+        resultText = await mcpManager.callTool(toolName, toolArgs);
+        durationMs = Math.round(performance.now() - startTime);
+      } catch (err) {
+        durationMs = Math.round(performance.now() - startTime);
+        errorMsg = err instanceof Error ? err.message : "Tool call failed";
 
-        const duration = Math.round(performance.now() - startTime);
+        // If this looks like an auth failure on the MCP hop, the most
+        // likely cause is an expired/revoked APIM token (the SDK bakes
+        // headers at connect time, so it never picks up a refresh on
+        // its own). Force a fresh token, rebuild the MCP transports,
+        // and retry the call once.
+        if (isUnauthorizedError(err)) {
+          console.warn(
+            `[Agent] Tool failure looks like auth — ${toolName}, ${durationMs}ms, reason: ${errorMsg}; refreshing token and retrying`
+          );
+          try {
+            const fresh = await getApimToken(true);
+            await mcpManager.refreshAuth(fresh);
+            const retryStart = performance.now();
+            resultText = await mcpManager.callTool(toolName, toolArgs);
+            durationMs = Math.round(performance.now() - retryStart);
+            errorMsg = "";
+            console.log(
+              `[Agent] Tool retry succeeded — ${toolName}, ${durationMs}ms`
+            );
+          } catch (retryErr) {
+            const retryMsg =
+              retryErr instanceof Error
+                ? retryErr.message
+                : "Tool call retry failed";
+            console.warn(
+              `[Agent] Tool retry failed — ${toolName}, reason: ${retryMsg}`
+            );
+            // Keep the original errorMsg so the LLM sees the actual
+            // failure surface, not a less-useful retry-path error.
+          }
+        }
+      }
+
+      if (resultText !== undefined) {
         console.log(
-          `[Agent] Tool result — ${toolName}, ${duration}ms, success: true`
+          `[Agent] Tool result — ${toolName}, ${durationMs}ms, success: true`
         );
-
         toolResults.push({
           type: "tool_result",
           tool_use_id: toolUse.id,
           content: resultText,
         });
-
         sendEvent({ type: "tool_result", name: toolName });
         emitPropertyData(resultText, sendEvent);
-      } catch (err) {
-        const duration = Math.round(performance.now() - startTime);
-        const errorMsg =
-          err instanceof Error ? err.message : "Tool call failed";
-        console.log(
-          `[Agent] Tool result — ${toolName}, ${duration}ms, success: false`
+      } else {
+        console.error(
+          `[Agent] Tool result — ${toolName}, ${durationMs}ms, success: false, reason: ${errorMsg}`
         );
-
         toolResults.push({
           type: "tool_result",
           tool_use_id: toolUse.id,
           content: `Error: ${errorMsg}`,
           is_error: true,
         });
-
         sendEvent({ type: "tool_result", name: toolName });
       }
     }
@@ -163,6 +195,22 @@ export async function runAgentLoop(
     `[Agent] Complete — conversationId: ${conversationId}, rounds: ${toolRounds}`
   );
   sendEvent({ type: "done", conversationId });
+}
+
+/**
+ * Heuristic: does this error look like an MCP-side 401/403?
+ * The MCP SDK surfaces upstream HTTP failures via the error message; we
+ * have to string-match because there's no stable status field on the
+ * thrown error across SDK versions.
+ */
+function isUnauthorizedError(err: unknown): boolean {
+  if (!err) return false;
+  const msg = err instanceof Error ? err.message : String(err);
+  const status =
+    (err as { status?: number; statusCode?: number }).status ??
+    (err as { status?: number; statusCode?: number }).statusCode;
+  if (status === 401 || status === 403) return true;
+  return /\b(401|403)\b/.test(msg) || /unauthorized|forbidden/i.test(msg);
 }
 
 /**

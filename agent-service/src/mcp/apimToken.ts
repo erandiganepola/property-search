@@ -51,9 +51,13 @@ async function fetchToken(): Promise<CachedToken> {
 
 /**
  * Returns a valid APIM access token, fetching or refreshing as needed.
+ * Pass `forceRefresh: true` to bypass the cache (e.g. after a 401 from
+ * downstream — the token may have been revoked early or our clock may
+ * disagree with the issuer's, even if the cached `expiresAt` says it's
+ * still good).
  */
-export async function getApimToken(): Promise<string> {
-  if (!cached || Date.now() >= cached.expiresAt) {
+export async function getApimToken(forceRefresh = false): Promise<string> {
+  if (forceRefresh || !cached || Date.now() >= cached.expiresAt) {
     cached = await fetchToken();
   }
   return cached.accessToken;
