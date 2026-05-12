@@ -20,11 +20,15 @@ export class McpManager {
   private servers: ConnectedServer[] = [];
   private toolMap = new Map<string, ConnectedServer>();
   private tools: Tool[] = [];
+  private configs: McpServerConfig[] = [];
 
   async connect(
     configs: McpServerConfig[],
     accessToken?: string
   ): Promise<void> {
+    // Remember the configs so refreshAuth() can rebuild transports with
+    // a fresh bearer token without callers having to re-supply them.
+    this.configs = configs;
     for (const config of configs) {
       const client = new Client({ name: "agent-service", version: "1.0.0" });
 
@@ -64,6 +68,19 @@ export class McpManager {
 
   getTools(): Tool[] {
     return this.tools;
+  }
+
+  /**
+   * Tear down all MCP client connections and rebuild them using the
+   * provided bearer token. The Streamable HTTP transport bakes headers
+   * at construct time and doesn't re-read them per request, so this is
+   * the only way to swap in a refreshed token after the original one
+   * has expired or been revoked.
+   */
+  async refreshAuth(accessToken: string): Promise<void> {
+    const configs = this.configs;
+    await this.disconnect();
+    await this.connect(configs, accessToken);
   }
 
   async callTool(
