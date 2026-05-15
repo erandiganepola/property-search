@@ -121,6 +121,16 @@ app.post("/chat", async (req, res) => {
   res.setHeader("Connection", "keep-alive");
   res.flushHeaders();
 
+  // Keep the SSE channel alive while the LLM call is in flight. Without this,
+  // proxies between the client and this service (e.g. Choreo's API gateway)
+  // can idle-timeout the connection after ~30-60s of silence, severing the
+  // stream mid-request and surfacing as a generic "network error" in the
+  // browser. A periodic SSE comment is ignored by clients but resets the
+  // idle timer along the path.
+  const keepalive = setInterval(() => {
+    res.write(`: keepalive ${Date.now()}\n\n`);
+  }, 15_000);
+
   const sendEvent = (event: SSEEvent) => {
     res.write(`data: ${JSON.stringify(event)}\n\n`);
   };
@@ -137,9 +147,10 @@ app.post("/chat", async (req, res) => {
       type: "error",
       content: err instanceof Error ? err.message : "Internal error",
     });
+  } finally {
+    clearInterval(keepalive);
+    res.end();
   }
-
-  res.end();
 });
 
 // Health check
